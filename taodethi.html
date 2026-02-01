@@ -2,232 +2,416 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VDC Exam Generator - Tạo Đề Thi Tự Động</title>
+    <title>Bài Kiểm Tra Sát Hạch VDC - Nhóm 3</title>
     <style>
-        /* --- CẤU HÌNH CHUNG --- */
-        body { font-family: 'Times New Roman', serif; background: #f0f2f5; margin: 0; padding: 0; }
+        /* --- CSS GỐC (GIỮ NGUYÊN) --- */
+        body { font-family: 'Times New Roman', serif; margin: 0; padding: 0; background: #eee; }
+        .page { width: 210mm; min-height: 297mm; background: white; margin: 20px auto; padding: 15mm 10mm; position: relative; box-sizing: border-box; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         
-        /* --- GIAO DIỆN NHẬP LIỆU (KHÔNG IN) --- */
-        .control-panel {
-            background: white; padding: 20px; max-width: 800px; margin: 20px auto;
-            border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .control-panel h2 { color: #007bff; margin-top: 0; }
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; font-weight: bold; margin-bottom: 5px; }
-        .input-group input, .input-group textarea {
-            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit;
-        }
-        .btn-action {
-            background: #28a745; color: white; border: none; padding: 10px 20px;
-            font-size: 16px; cursor: pointer; border-radius: 4px; margin-right: 10px;
-        }
-        .btn-print { background: #6f42c1; }
-        .btn-action:hover { opacity: 0.9; }
+        /* 4 MARKER ĐỊNH VỊ CHO PYTHON (QUAN TRỌNG) */
+        .marker { width: 15px; height: 15px; background: black; position: absolute; }
+        .tl { top: 10mm; left: 10mm; }
+        .tr { top: 10mm; right: 10mm; }
+        .bl { bottom: 10mm; left: 10mm; }
+        .br { bottom: 10mm; right: 10mm; }
 
-        /* --- GIAO DIỆN ĐỀ THI (SẼ IN RA) --- */
-        #exam-paper {
-            background: white; width: 210mm; min-height: 297mm; /* Khổ A4 */
-            margin: 20px auto; padding: 20mm; box-shadow: 0 0 10px rgba(0,0,0,0.2);
-            box-sizing: border-box; position: relative;
-        }
+        /* HEADER */
+        .header { display: flex; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+        .logo { width: 100px; text-align: center; font-weight: bold; display: flex; align-items: center; justify-content: center; border: 1px dashed #ccc; margin-right: 15px; }
+        .company-info { flex: 1; }
+        .company-info h3 { margin: 0; font-size: 14px; text-transform: uppercase; }
+        .company-info p { margin: 2px 0; font-size: 11px; }
+        .test-title { text-align: center; margin-top: 10px; }
+        .test-title h1 { margin: 0; font-size: 18px; text-transform: uppercase; }
+        .test-title h2 { margin: 5px 0; font-size: 14px; font-weight: normal; }
 
-        /* Header đề thi */
-        .exam-header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
-        .school-info { text-align: center; font-weight: bold; }
-        .exam-title { text-align: center; flex-grow: 1; }
-        .exam-title h1 { margin: 0; font-size: 18pt; text-transform: uppercase; }
+        /* INFO BOX */
+        .info-box { border: 1px solid #333; padding: 10px; margin-bottom: 20px; font-size: 13px; }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .info-item { flex: 1; }
+        .dots { border-bottom: 1px dotted #000; display: inline-block; width: 70%; }
+
+        /* QUESTION STYLES */
+        .question-block { margin-bottom: 15px; page-break-inside: avoid; }
+        .q-text { font-weight: bold; font-size: 14px; margin-bottom: 5px; }
+        .options { margin-left: 15px; font-size: 13px; margin-bottom: 8px; }
+        .opt-row { display: flex; justify-content: space-between; }
+        .opt { width: 48%; margin-bottom: 3px; }
         
-        /* Thông tin học viên */
-        .student-info { margin-bottom: 20px; border: 1px solid #000; padding: 10px; }
-        .info-row { display: flex; margin-bottom: 8px; }
-        .info-label { width: 120px; font-weight: bold; }
-        .info-field { border-bottom: 1px dotted #000; flex-grow: 1; }
-        
-        /* Mã số sinh viên (Ô vuông để tô - Optional cho Hybrid) */
-        .id-grid { display: flex; gap: 5px; margin-top: 5px; }
-        .id-box { width: 25px; height: 25px; border: 1px solid #000; text-align: center; line-height: 25px; color: #ccc; font-size: 12px; }
-
-        /* Câu hỏi */
-        .question-item { margin-bottom: 15px; page-break-inside: avoid; }
-        .q-text { font-weight: bold; margin-bottom: 5px; }
-        .q-options { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-left: 20px; }
-        
-        /* Vùng tô đáp án (Quan trọng cho App chấm) */
-        .hybrid-answer-zone {
-            margin-top: 8px; padding: 5px 10px; background: #f9f9f9; border: 1px dashed #999;
-            display: inline-block; border-radius: 4px;
+        /* ANSWER STRIP (KHU VỰC CHẤM TỰ ĐỘNG) */
+        .answer-strip { 
+            background: #f0f0f0; 
+            border: 1px solid #999; 
+            padding: 5px 10px; 
+            display: flex; 
+            align-items: center; 
+            width: 100%;
+            box-sizing: border-box;
         }
-        .bubble-row { display: flex; align-items: center; gap: 15px; }
-        .bubble {
-            width: 20px; height: 20px; border: 2px solid #333; border-radius: 3px; /* Hình vuông */
-            display: inline-block; margin-right: 5px; vertical-align: middle;
+        .strip-label { font-size: 11px; font-weight: bold; margin-right: 15px; text-transform: uppercase; }
+        .checkbox-group { display: flex; gap: 20px; }
+        .cb-item { display: flex; align-items: center; cursor: pointer; }
+        /* Ô vuong để tô */
+        .box { 
+            width: 16px; height: 16px; border: 2px solid #000; background: white; margin-right: 5px; 
+            display: inline-block;
         }
-        .bubble-label { font-weight: bold; font-size: 14px; }
+        .cb-label { font-weight: bold; font-size: 14px; }
 
-        /* --- CSS IN ẤN (QUAN TRỌNG) --- */
+        /* IMAGES PLACEHOLDER */
+        .img-place { 
+            width: 100px; height: 100px; background: #ddd; margin: 10px 0; 
+            display: flex; align-items: center; justify-content: center; font-size: 10px; color: #555; border: 1px dashed #555;
+        }
+
+        /* --- PHẦN BỔ SUNG: CSS IN ẤN & NÚT BẤM --- */
+        
+        /* Nút bấm nổi (Floating Button) */
+        .print-btn-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+        .btn-print {
+            background-color: #dc3545; /* Màu đỏ */
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            transition: 0.3s;
+        }
+        .btn-print:hover { background-color: #c82333; transform: scale(1.05); }
+
+        /* Cấu hình khi in (Save as PDF) */
         @media print {
-            body { background: white; -webkit-print-color-adjust: exact; }
-            .no-print, .control-panel { display: none !important; }
-            #exam-paper { width: 100%; margin: 0; padding: 0; box-shadow: none; border: none; }
-            @page { size: A4; margin: 2cm; }
+            body { background: white; margin: 0; padding: 0; }
+            .print-btn-container { display: none !important; } /* Ẩn nút khi in */
+            
+            .page { 
+                margin: 0; 
+                width: 100%; 
+                border: none; 
+                box-shadow: none; 
+                page-break-after: always; /* Ngắt trang sau mỗi div page */
+            }
+            
+            /* Xóa lề mặc định của trình duyệt để Marker nằm đúng vị trí */
+            @page {
+                size: A4;
+                margin: 0; 
+            }
         }
     </style>
 </head>
 <body>
 
-    <div class="control-panel no-print">
-        <h2>🛠️ Cấu Hình Đề Thi VDC</h2>
-        <div class="input-group">
-            <label>Tên Trường/Đơn vị:</label>
-            <input type="text" id="schoolName" value="TRUNG TÂM ĐÀO TẠO VDC">
-        </div>
-        <div class="input-group">
-            <label>Tên Bài Thi:</label>
-            <input type="text" id="examName" value="KIỂM TRA AN TOÀN ĐIỆN">
-        </div>
-        <div class="input-group">
-            <label>Thời gian làm bài (phút):</label>
-            <input type="text" id="examTime" value="60">
-        </div>
-        
-        <div class="input-group">
-            <label>Dán nội dung câu hỏi vào đây (Định dạng: Câu 1: ... A. ... B. ...):</label>
-            <textarea id="rawQuestions" rows="10" placeholder="Câu 1: Biển báo an toàn điện có mấy màu?
-A. 2 màu
-B. 3 màu
-C. 4 màu
-D. 5 màu
+<div class="print-btn-container">
+    <button onclick="window.print()" class="btn-print">🖨️ Xuất PDF / In Đề</button>
+</div>
 
-Câu 2: Điện áp an toàn là bao nhiêu?
-A. Dưới 40V
-B. Dưới 50V
-C. Trên 100V
-D. 220V"></textarea>
-        </div>
+<div class="page">
+    <div class="marker tl"></div>
+    <div class="marker tr"></div>
+    <div class="marker bl"></div>
+    <div class="marker br"></div>
 
-        <button class="btn-action" onclick="generateExam()">⚙️ Tạo Đề Thi</button>
-        <button class="btn-action btn-print" onclick="window.print()">🖨️ Xuất PDF / In Đề</button>
-        <p style="font-size: 12px; color: #666; margin-top: 10px;">*Mẹo: Sau khi bấm nút Tạo, kéo xuống dưới để xem trước. Nếu ưng ý thì bấm nút In.</p>
+    <div class="header">
+        <div class="logo">LOGO VDC</div>
+        <div class="company-info">
+            <h3>CÔNG TY CỔ PHẦN HỢP TÁC QUỐC TẾ VDC</h3>
+            <p>ĐC: Số nhà 46 LK11 Khu đô thị mới Đông Sơn, P. An Hưng, TP. Thanh Hoá</p>
+            <p>Email: kiemdinhvdc@gmail.com</p>
+            <div class="test-title">
+                <h1>BÀI KIỂM TRA SÁT HẠCH</h1>
+                <h2>KHÓA HUẤN LUYỆN AN TOÀN, VỆ SINH LAO ĐỘNG NHÓM 3</h2>
+            </div>
+        </div>
     </div>
 
-    <div id="exam-paper">
-        <div class="exam-header">
-            <div class="school-info">
-                <div id="printSchoolName">TRUNG TÂM ĐÀO TẠO VDC</div>
-                <div>-----***-----</div>
-            </div>
-            <div class="exam-title">
-                <h1 id="printExamName">BÀI KIỂM TRA</h1>
-                <div>Thời gian: <span id="printTime">60</span> phút</div>
-                <div>(Không kể thời gian phát đề)</div>
-            </div>
+    <div class="info-box">
+        <div class="info-row">
+            <div class="info-item">Họ và tên: ................................................................</div>
+            <div class="info-item">Ngày sinh: ...........................................</div>
         </div>
-
-        <div class="student-info">
-            <div class="info-row">
-                <span class="info-label">Họ và tên:</span>
-                <div class="info-field"></div>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Lớp/Đơn vị:</span>
-                <div class="info-field"></div>
-            </div>
-            <div class="info-row" style="align-items: center; margin-top: 10px;">
-                <span class="info-label">Mã số HV:</span>
-                <div class="id-grid">
-                    <div class="id-box"></div><div class="id-box"></div><div class="id-box"></div>
-                    <div class="id-box"></div><div class="id-box"></div><div class="id-box"></div>
-                </div>
-                <div style="margin-left: 20px; font-size: 11px; font-style: italic;">(Học viên ghi mã số vào các ô vuông)</div>
-            </div>
+        <div class="info-row">
+            <div class="info-item">Chức vụ/Công việc: ...........................................</div>
+            <div class="info-item">Công ty: ...............................................</div>
         </div>
-
-        <div id="questions-container">
-            </div>
-
-        <div style="text-align: center; margin-top: 30px; font-weight: bold;">--- HẾT ---</div>
+        <div class="info-row">
+            <div class="info-item">Ngày kiểm tra: ....................................................</div>
+            <div class="info-item">Chữ ký: ...................................................</div>
+        </div>
+        <div style="margin-top:5px; font-style:italic; font-size:11px;">* Hướng dẫn: Đánh dấu X hoặc tô kín vào ô vuông tương ứng với đáp án đúng ở khung "TRẢ LỜI" bên dưới mỗi câu hỏi.</div>
     </div>
 
-    <script>
-        // Hàm sinh đề thi từ dữ liệu nhập vào
-        function generateExam() {
-            // 1. Cập nhật thông tin Header
-            document.getElementById('printSchoolName').innerText = document.getElementById('schoolName').value.toUpperCase();
-            document.getElementById('printExamName').innerText = document.getElementById('examName').value.toUpperCase();
-            document.getElementById('printTime').innerText = document.getElementById('examTime').value;
+    <div class="question-block">
+        <div class="q-text">Câu 1. Hệ thống văn bản quy phạm pháp luật được sắp xếp theo thứ tự nào sau đây?</div>
+        <div class="options">
+            <div class="opt-row"><div class="opt">A. Hiến pháp - Luật - Nghị định - Thông tư</div><div class="opt">B. Luật - Hiến pháp - Nghị định - Thông tư</div></div>
+            <div class="opt-row"><div class="opt">C. Nghị định - Luật - Thông tư - Tiêu chuẩn</div><div class="opt">D. Luật - Hiến pháp - Nghị định - Thông tư - Tiêu chuẩn</div></div>
+        </div>
+        <div class="answer-strip">
+            <span class="strip-label">Trả lời:</span>
+            <div class="checkbox-group">
+                <div class="cb-item"><span class="box"></span><span class="cb-label">A</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">B</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">C</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">D</span></div>
+            </div>
+        </div>
+    </div>
 
-            // 2. Xử lý nội dung câu hỏi
-            const rawText = document.getElementById('rawQuestions').value;
-            const container = document.getElementById('questions-container');
-            container.innerHTML = ''; // Xóa cũ
+    <div class="question-block">
+        <div class="q-text">Câu 2. Luật An toàn, vệ sinh lao động là văn bản pháp luật số...?</div>
+        <div class="options">
+            <div class="opt-row"><div class="opt">A. 84/2015/QH13</div><div class="opt">B. 45/2019/QH14</div></div>
+            <div class="opt-row"><div class="opt">C. 72/2020/QH14</div><div class="opt">D. 50/2014/QH13</div></div>
+        </div>
+        <div class="answer-strip">
+            <span class="strip-label">Trả lời:</span>
+            <div class="checkbox-group">
+                <div class="cb-item"><span class="box"></span><span class="cb-label">A</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">B</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">C</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">D</span></div>
+            </div>
+        </div>
+    </div>
 
-            // Tách các đoạn văn bản thành mảng dựa trên từ khóa "Câu" hoặc số thứ tự đầu dòng
-            // Logic đơn giản: Tách theo dòng mới, gom nhóm lại
-            const lines = rawText.split('\n');
-            let currentQuestion = null;
-            let questionCount = 0;
+    <div class="question-block">
+        <div class="q-text">Câu 3. Theo QCVN 18/2021/BXD, khi làm việc trên cao từ bao nhiêu mét (m) trở lên phải đeo dây đai an toàn?</div>
+        <div class="options">
+            <div class="opt-row"><div class="opt">A. 1m</div><div class="opt">B. 2m</div></div>
+            <div class="opt-row"><div class="opt">C. 3m</div><div class="opt">D. 4m</div></div>
+        </div>
+        <div class="answer-strip">
+            <span class="strip-label">Trả lời:</span>
+            <div class="checkbox-group">
+                <div class="cb-item"><span class="box"></span><span class="cb-label">A</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">B</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">C</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">D</span></div>
+            </div>
+        </div>
+    </div>
 
-            lines.forEach(line => {
-                line = line.trim();
-                if (!line) return;
+    <div class="question-block">
+        <div class="q-text">Câu 4. Theo luật An toàn, vệ sinh lao động, người lao động có những quyền nào sau đây?</div>
+        <div class="options">
+            <div class="opt">A. Được bảo đảm điều kiện làm việc công bằng, an toàn; yêu cầu NSDLĐ bảo đảm an toàn...</div>
+            <div class="opt">B. Được thực hiện chế độ BHLĐ, khám sức khỏe, bảo hiểm TNLĐ...</div>
+            <div class="opt">C. Được chủ động đi khám giám định mức suy giảm khả năng lao động...</div>
+            <div class="opt">D. Cả 3 đáp án trên</div>
+        </div>
+        <div class="answer-strip">
+            <span class="strip-label">Trả lời:</span>
+            <div class="checkbox-group">
+                <div class="cb-item"><span class="box"></span><span class="cb-label">A</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">B</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">C</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">D</span></div>
+            </div>
+        </div>
+    </div>
 
-                // Kiểm tra xem dòng này có phải bắt đầu câu hỏi mới không (VD: "Câu 1:", "1.")
-                const isQuestion = line.match(/^(Câu\s+\d+|Bài\s+\d+|\d+\.)[:.]/i);
+    <div class="question-block">
+        <div class="q-text">Câu 5. Việc trang bị phương tiện bảo vệ cá nhân trong quá trình làm việc thuộc trách nhiệm của ai?</div>
+        <div class="options">
+            <div class="opt-row"><div class="opt">A. Người sử dụng lao động</div><div class="opt">B. Người lao động</div></div>
+            <div class="opt-row"><div class="opt">C. Công đoàn</div><div class="opt">D. Tất cả các ý trên</div></div>
+        </div>
+        <div class="answer-strip">
+            <span class="strip-label">Trả lời:</span>
+            <div class="checkbox-group">
+                <div class="cb-item"><span class="box"></span><span class="cb-label">A</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">B</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">C</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">D</span></div>
+            </div>
+        </div>
+    </div>
 
-                if (isQuestion) {
-                    questionCount++;
-                    // Tạo khung câu hỏi HTML
-                    currentQuestion = document.createElement('div');
-                    currentQuestion.className = 'question-item';
-                    
-                    // Nội dung câu hỏi
-                    const qText = document.createElement('div');
-                    qText.className = 'q-text';
-                    qText.innerText = line; // Giữ nguyên dòng câu hỏi
-                    currentQuestion.appendChild(qText);
+    <div class="question-block">
+        <div class="q-text">Câu 6. Các yếu tố nguy hiểm trong sản xuất là:</div>
+        <div class="options">
+            <div class="opt-row"><div class="opt">A. Các bộ phận truyền động và chuyển động</div><div class="opt">B. Vật rơi, văng bắn</div></div>
+            <div class="opt-row"><div class="opt">C. Nguồn điện</div><div class="opt">D. Cả 3 đáp án trên</div></div>
+        </div>
+        <div class="answer-strip">
+            <span class="strip-label">Trả lời:</span>
+            <div class="checkbox-group">
+                <div class="cb-item"><span class="box"></span><span class="cb-label">A</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">B</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">C</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">D</span></div>
+            </div>
+        </div>
+    </div>
 
-                    // Tạo container chứa đáp án (A, B, C, D text)
-                    const optionsContainer = document.createElement('div');
-                    optionsContainer.className = 'q-options';
-                    optionsContainer.id = `options-${questionCount}`;
-                    currentQuestion.appendChild(optionsContainer);
+    <div class="question-block">
+        <div class="q-text">Câu 7. Các yếu tố có hại là:</div>
+        <div class="options">
+            <div class="opt-row"><div class="opt">A. Bụi</div><div class="opt">B. Tiếng ồn</div></div>
+            <div class="opt-row"><div class="opt">C. Hóa chất</div><div class="opt">D. Tất cả các ý trên</div></div>
+        </div>
+        <div class="answer-strip">
+            <span class="strip-label">Trả lời:</span>
+            <div class="checkbox-group">
+                <div class="cb-item"><span class="box"></span><span class="cb-label">A</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">B</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">C</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">D</span></div>
+            </div>
+        </div>
+    </div>
+    
+     <div class="question-block">
+        <div class="q-text">Câu 8. Hàng năm, người sử dụng lao động có trách nhiệm tổ chức khám sức khỏe định kỳ cho người lao động làm công việc có yếu tố nguy hiểm, độc hại ít nhất?</div>
+        <div class="options">
+            <div class="opt-row"><div class="opt">A. 01 lần/năm</div><div class="opt">B. 02 lần/năm</div><div class="opt">C. 03 lần/năm</div></div>
+        </div>
+        <div class="answer-strip">
+            <span class="strip-label">Trả lời:</span>
+            <div class="checkbox-group">
+                <div class="cb-item"><span class="box"></span><span class="cb-label">A</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">B</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">C</span></div>
+            </div>
+        </div>
+    </div>
 
-                    // --- PHẦN HYBRID: TẠO Ô TÔ ĐÁP ÁN ---
-                    const hybridZone = document.createElement('div');
-                    hybridZone.className = 'hybrid-answer-zone';
-                    hybridZone.innerHTML = `
-                        <div class="bubble-row">
-                            <span>Trả lời: </span>
-                            <div><span class="bubble"></span> A</div>
-                            <div><span class="bubble"></span> B</div>
-                            <div><span class="bubble"></span> C</div>
-                            <div><span class="bubble"></span> D</div>
-                        </div>
-                    `;
-                    currentQuestion.appendChild(hybridZone);
+     <div class="question-block">
+        <div class="q-text">Câu 9. Biểu tượng sau có ý nghĩa gì?</div>
+        <div class="img-place">[Dán ảnh biển cảnh báo điện tại đây]</div>
+        <div class="options">
+            <div class="opt">A. Cảnh báo nguy hiểm sét đánh</div>
+            <div class="opt">B. Cảnh báo nguy hiểm điện giật</div>
+            <div class="opt">C. Cảnh báo nguy hiểm chuyển động</div>
+        </div>
+        <div class="answer-strip">
+            <span class="strip-label">Trả lời:</span>
+            <div class="checkbox-group">
+                <div class="cb-item"><span class="box"></span><span class="cb-label">A</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">B</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">C</span></div>
+            </div>
+        </div>
+    </div>
 
-                    container.appendChild(currentQuestion);
-                } else if (currentQuestion) {
-                    // Nếu không phải câu hỏi, thì là đáp án (A., B., C...)
-                    // Thêm vào mục options
-                    const optionDiv = document.createElement('div');
-                    optionDiv.innerText = line;
-                    
-                    // Tìm container option của câu hiện tại để nhét vào
-                    const opts = currentQuestion.querySelector('.q-options');
-                    if (opts) opts.appendChild(optionDiv);
-                }
-            });
+</div> 
 
-            if (questionCount === 0) {
-                alert("Không tìm thấy câu hỏi nào! Vui lòng nhập đúng định dạng 'Câu 1: ...'");
-            }
-        }
+<div class="page">
+    <div class="marker tl"></div>
+    <div class="marker tr"></div>
+    <div class="marker bl"></div>
+    <div class="marker br"></div>
 
-        // Chạy lần đầu để hiện thị mẫu
-        window.onload = generateExam;
-    </script>
+     <div class="question-block" style="padding-top: 20px;">
+        <div class="q-text">Câu 10. Các mối nguy về cẩu là?</div>
+        <div class="options">
+            <div class="opt-row"><div class="opt">A. Lật cần trục, vật thể rơi</div><div class="opt">B. Gãy cần nâng, va chạm với vật cản</div></div>
+            <div class="opt-row"><div class="opt">C. Chạm vào đường dây điện trên cao</div><div class="opt">D. Cả 3 đáp án trên</div></div>
+        </div>
+        <div class="answer-strip">
+            <span class="strip-label">Trả lời:</span>
+            <div class="checkbox-group">
+                <div class="cb-item"><span class="box"></span><span class="cb-label">A</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">B</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">C</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">D</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="question-block">
+        <div class="q-text">Câu 11. Mối nguy về hàn cắt là gì?</div>
+        <div class="options">
+            <div class="opt-row"><div class="opt">A. Cắt vào người, văng bắn, điện giật</div><div class="opt">B. Cháy nổ, bỏng</div></div>
+            <div class="opt-row"><div class="opt">C. Khói, khí độc</div><div class="opt">D. Cả ba đáp án trên</div></div>
+        </div>
+        <div class="answer-strip">
+            <span class="strip-label">Trả lời:</span>
+            <div class="checkbox-group">
+                <div class="cb-item"><span class="box"></span><span class="cb-label">A</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">B</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">C</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">D</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="question-block">
+        <div class="q-text">Câu 12. Không được sử dụng giàn giáo, giá đỡ khi?</div>
+        <div class="options">
+            <div class="opt">A. Giàn giáo, giá đỡ không đảm bảo yêu cầu kỹ thuật</div>
+            <div class="opt">B. Có biến dạng nứt, mòn, gỉ hoặc thiếu các bộ phận</div>
+            <div class="opt">C. Khi lắp đặt sai biện pháp</div>
+            <div class="opt">D. Cả 3 phương án trên</div>
+        </div>
+        <div class="answer-strip">
+            <span class="strip-label">Trả lời:</span>
+            <div class="checkbox-group">
+                <div class="cb-item"><span class="box"></span><span class="cb-label">A</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">B</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">C</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">D</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="question-block">
+        <div class="q-text">Câu 13. Có được chở người trên xe nâng hàng (forklift) không?</div>
+        <div class="options">
+            <div class="opt-row"><div class="opt">A. Có</div><div class="opt">C. Không</div></div>
+        </div>
+        <div class="answer-strip">
+            <span class="strip-label">Trả lời:</span>
+            <div class="checkbox-group">
+                <div class="cb-item"><span class="box"></span><span class="cb-label">A</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">C</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="question-block">
+        <div class="q-text">Câu 14. Các yếu tố nguy hiểm khi vận hành xe nâng?</div>
+        <div class="options">
+            <div class="opt-row"><div class="opt">A. Rơi đổ hàng</div><div class="opt">B. Xe bị lật đổ</div></div>
+            <div class="opt-row"><div class="opt">C. Va quẹt, đụng vào người và hàng hóa</div><div class="opt">D. Cả 3 phương án trên</div></div>
+        </div>
+        <div class="answer-strip">
+            <span class="strip-label">Trả lời:</span>
+            <div class="checkbox-group">
+                <div class="cb-item"><span class="box"></span><span class="cb-label">A</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">B</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">C</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">D</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="question-block">
+        <div class="q-text">Câu 15. Bình chữa cháy nào dưới đây là bình CO2?</div>
+        <div class="img-place">[Dán 3 ảnh bình chữa cháy vào đây như đề gốc]</div>
+        <div class="options">
+            <div class="opt-row"><div class="opt">A</div><div class="opt">B</div><div class="opt">C</div></div>
+        </div>
+        <div class="answer-strip">
+            <span class="strip-label">Trả lời:</span>
+            <div class="checkbox-group">
+                <div class="cb-item"><span class="box"></span><span class="cb-label">A</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">B</span></div>
+                <div class="cb-item"><span class="box"></span><span class="cb-label">C</span></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
 </body>
 </html>
