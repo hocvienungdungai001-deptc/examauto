@@ -3,161 +3,257 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VDC Hybrid Exam - v1.1</title>
+    <title>VDC LAN Grader v1.3</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        :root { --primary: #007bff; --success: #28a745; --danger: #dc3545; --bg: #f8f9fa; }
-        body { font-family: 'Roboto', sans-serif; background: var(--bg); margin: 0; padding: 15px; color: #333; }
-        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto; }
-        h2 { text-align: center; color: var(--primary); margin-top: 0; }
+        :root {
+            --primary: #007bff;
+            --success: #28a745;
+            --danger: #dc3545;
+            --bg: #f0f2f5;
+        }
         
-        .preview-container { display: flex; overflow-x: auto; gap: 10px; padding: 10px 0; margin-bottom: 20px; border-bottom: 2px dashed #eee; }
-        .page-thumb { width: 80px; height: 100px; object-fit: cover; border-radius: 5px; border: 2px solid #ddd; position: relative; }
-        .page-badge { position: absolute; bottom: -25px; left: 0; width: 100%; text-align: center; font-size: 12px; font-weight: bold; }
-        
-        .btn-group { display: flex; gap: 10px; }
-        button { flex: 1; padding: 15px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
-        .btn-add { background: #6c757d; color: white; }
-        .btn-finish { background: var(--primary); color: white; }
-        .btn-disabled { background: #ccc; pointer-events: none; }
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: var(--bg);
+            margin: 0;
+            padding: 15px;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
 
-        #statusBox { margin-top: 15px; text-align: center; font-style: italic; color: #666; }
-        #fileInput { display: none; }
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: var(--primary);
+            font-size: 24px;
+        }
+
+        /* Khu vực nhập IP */
+        .config-area {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
         
-        .result-link { display: block; margin-top: 15px; text-align: center; background: #e9ecef; padding: 10px; border-radius: 5px; text-decoration: none; color: #007bff; font-weight: bold; }
+        .config-label {
+            font-size: 12px;
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .ip-input-group {
+            display: flex;
+            gap: 5px;
+        }
+
+        #ipInput {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 16px;
+        }
+
+        /* Nút chụp ảnh to đẹp */
+        .btn-camera {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            width: 100%;
+            padding: 20px;
+            border: none;
+            border-radius: 15px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,123,255,0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-camera:active {
+            transform: scale(0.98);
+            box-shadow: 0 2px 5px rgba(0,123,255,0.3);
+        }
+
+        .btn-camera svg {
+            width: 30px;
+            height: 30px;
+            fill: white;
+        }
+
+        /* Khu vực hiển thị kết quả */
+        #resultBox {
+            margin-top: 25px;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .score-display {
+            font-size: 60px;
+            font-weight: 700;
+            color: var(--success);
+            line-height: 1;
+        }
+
+        .status-text {
+            margin-top: 10px;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        
+        .cloud-sync {
+            font-size: 13px;
+            color: #666;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: #f8f9fa;
+            padding: 5px 10px;
+            border-radius: 20px;
+        }
+
+        /* Input ẩn */
+        #fileInput { display: none; }
+
+        /* Animation xoay xoay khi đang load */
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>📚 CHẤM THI HYBRID (v1.1)</h2>
-
-    <div style="font-weight: bold; margin-bottom: 5px;">Các trang đã chụp:</div>
-    <div id="previewContainer" class="preview-container">
-        <div style="padding: 30px 10px; color: #999; font-size: 14px;">Chưa có trang nào...</div>
-    </div>
-
-    <div class="btn-group">
-        <button onclick="triggerCamera()" class="btn-add">📸 Thêm trang</button>
-        <button onclick="finishAndGrade()" id="btnFinish" class="btn-finish btn-disabled">✅ Chấm ngay</button>
-    </div>
+    <h2>🚀 VDC LAN GRADER v1.3</h2>
     
-    <div id="statusBox">Hãy chụp trang 1 (Phiếu tô) đầu tiên!</div>
-    <div id="resultArea"></div>
+    <div class="config-area">
+        <label class="config-label">ĐỊA CHỈ IP LAPTOP (Xem bằng lệnh 'ipconfig'):</label>
+        <div class="ip-input-group">
+            <input type="text" id="ipInput" placeholder="VD: 192.168.1.5" value="192.168.1.">
+        </div>
+        <div style="font-size: 11px; color: #666; margin-top: 5px;">*Cần kết nối cùng mạng Wifi</div>
+    </div>
 
-    <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect(this)">
+    <button class="btn-camera" onclick="triggerCamera()">
+        <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/><path d="M0 0h24v24H0z" fill="none"/></svg>
+        CHỤP BÀI THI
+    </button>
+    
+    <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="uploadToLaptop(this)">
+
+    <div id="resultBox">
+        <div style="color: #999; font-style: italic;">Sẵn sàng chấm thi...</div>
+    </div>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
 <script>
-    // ⚠️ BẠN HÃY DÁN LINK APPS SCRIPT CỦA BẠN VÀO DÒNG DƯỚI
-    const APPS_SCRIPT_URL = "DÁN_LINK_APPS_SCRIPT_CUA_BAN_VAO_DAY"; 
+    // 1. Tự động tải IP đã lưu lần trước
+    const ipInput = document.getElementById('ipInput');
+    const savedIP = localStorage.getItem('vdc_laptop_ip');
+    if (savedIP) {
+        ipInput.value = savedIP;
+    }
 
-    // ✅ ĐÃ CẬP NHẬT URL FIREBASE CHÍNH XÁC CỦA BẠN
-    const firebaseConfig = {
-        apiKey: "AIzaSyCzWjfcD5Dgq7V-i2izb9tKLR6QM6qWPQo", // API Key cũ của bạn (nếu đổi project thì thay lại)
-        authDomain: "vdcexamauto.firebaseapp.com",
-        databaseURL: "https://vdcexamauto-default-rtdb.firebaseio.com/", // Link mới chuẩn 100%
-        projectId: "vdcexamauto",
-        storageBucket: "vdcexamauto.appspot.com",
-        messagingSenderId: "...", // Có thể điền hoặc bỏ qua nếu chỉ dùng Database
-        appId: "..." // Có thể điền hoặc bỏ qua
-    };
+    // 2. Hàm kích hoạt Camera
+    function triggerCamera() {
+        // Lưu IP lại trước khi chụp
+        localStorage.setItem('vdc_laptop_ip', ipInput.value);
+        document.getElementById('fileInput').click();
+    }
 
-    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const INSTRUCTOR_ID = "GV_VDC_MN"; 
-
-    let currentExamPages = []; 
-
-    function triggerCamera() { document.getElementById('fileInput').click(); }
-
-    const toBase64 = file => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = error => reject(error);
-    });
-
-    async function handleFileSelect(input) {
+    // 3. Hàm gửi ảnh sang Laptop (LAN)
+    async function uploadToLaptop(input) {
         if (input.files.length === 0) return;
         const file = input.files[0];
-        const statusDiv = document.getElementById('statusBox');
-        statusDiv.innerText = `⏳ Đang tải trang ${currentExamPages.length + 1}...`;
+        
+        // Giao diện đang xử lý
+        const resultBox = document.getElementById('resultBox');
+        resultBox.innerHTML = `
+            <div class="loader"></div>
+            <div class="status-text" style="color: #007bff;">Đang bắn ảnh sang Laptop...</div>
+        `;
+
+        // Chuẩn bị IP
+        let laptopIP = ipInput.value.trim();
+        if (!laptopIP.startsWith('http')) {
+            laptopIP = 'http://' + laptopIP; // Tự thêm http nếu thiếu
+        }
+        if (!laptopIP.includes(':5000')) {
+            laptopIP = laptopIP + ':5000'; // Tự thêm port nếu thiếu
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
 
         try {
-            const base64 = await toBase64(file);
-            const response = await fetch(APPS_SCRIPT_URL, {
-                method: "POST", redirect: "follow",
-                headers: { "Content-Type": "text/plain;charset=utf-8" },
-                body: JSON.stringify({ base64: base64, filename: `page_${Date.now()}.jpg`, mimeType: file.type })
+            // Gửi request POST
+            const response = await fetch(`${laptopIP}/upload`, {
+                method: "POST",
+                body: formData
             });
 
-            if (!response.ok) throw new Error("Lỗi mạng");
+            if (!response.ok) throw new Error("Không kết nối được Laptop (Kiểm tra IP/Firewall)");
+
             const result = await response.json();
-            currentExamPages.push(result.fileUrl);
-            renderPreview(file);
             
-            statusDiv.innerText = "✅ Đã thêm. Bấm Chấm ngay khi xong.";
-            document.getElementById('btnFinish').classList.remove('btn-disabled');
+            // HIỂN THỊ KẾT QUẢ
+            resultBox.innerHTML = `
+                <div class="score-display">${result.score}</div>
+                <div class="status-text" style="color: var(--success);">ĐÃ CÓ ĐIỂM!</div>
+                <div class="cloud-sync">
+                    <span>☁️</span> Đang ngầm lưu lên Drive & Firebase...
+                </div>
+            `;
+
         } catch (error) {
-            alert("Lỗi upload: " + error.message);
-            statusDiv.innerText = "❌ Lỗi tải trang.";
+            console.error(error);
+            resultBox.innerHTML = `
+                <div style="font-size: 40px;">❌</div>
+                <div class="status-text" style="color: var(--danger);">Lỗi kết nối!</div>
+                <div style="font-size: 12px; color: #666; margin-top:5px;">
+                    1. Kiểm tra IP Laptop.<br>
+                    2. Tắt tường lửa (Firewall).<br>
+                    3. Đảm bảo cùng Wifi.
+                </div>
+            `;
         }
+
+        // Reset input để chọn lại file cũ được
         input.value = '';
     }
-
-    function renderPreview(file) {
-        const container = document.getElementById('previewContainer');
-        if (currentExamPages.length === 1) container.innerHTML = '';
-        const wrapper = document.createElement('div');
-        wrapper.style.position = "relative";
-        const img = document.createElement('img');
-        img.src = URL.createObjectURL(file);
-        img.className = 'page-thumb';
-        const badge = document.createElement('div');
-        badge.className = 'page-badge';
-        badge.innerText = `Trang ${currentExamPages.length}`;
-        wrapper.appendChild(img); wrapper.appendChild(badge);
-        container.appendChild(wrapper);
-    }
-
-    async function finishAndGrade() {
-        if (currentExamPages.length === 0) return;
-        const btn = document.getElementById('btnFinish');
-        btn.innerText = "Đang gửi lệnh..."; btn.classList.add('btn-disabled');
-        
-        const examID = Date.now();
-        const ref = db.ref(`grading_queue/${INSTRUCTOR_ID}/${examID}`);
-        
-        await ref.set({
-            status: 'pending',
-            type: 'multipage',
-            pages: currentExamPages,
-            timestamp: Date.now()
-        });
-
-        document.getElementById('statusBox').innerText = "🤖 Đang chấm điểm...";
-        
-        // Lắng nghe kết quả trả về
-        ref.on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data && data.status === 'completed') {
-                document.getElementById('statusBox').className = "status-done";
-                document.getElementById('statusBox').innerHTML = `✅ ĐÃ XONG! TỔNG ĐIỂM: <b>${data.score}</b>`;
-                
-                const resultArea = document.getElementById('resultArea');
-                resultArea.innerHTML = `<a href="${data.result_image_url}" target="_blank" class="result-link">📄 Xem File PDF Kết Quả</a>`;
-                
-                btn.innerText = "Chấm bài tiếp theo";
-                btn.onclick = () => location.reload();
-                btn.classList.remove('btn-disabled');
-                ref.off();
-            }
-        });
-    }
 </script>
+
 </body>
 </html>
