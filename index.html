@@ -3,105 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VDC Smart Grader</title>
+    <title>VDC Hybrid Exam - v1.1</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root { --primary: #007bff; --success: #28a745; --danger: #dc3545; --bg: #f8f9fa; }
-        body { font-family: 'Roboto', sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #333; }
-        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
+        body { font-family: 'Roboto', sans-serif; background: var(--bg); margin: 0; padding: 15px; color: #333; }
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto; }
         h2 { text-align: center; color: var(--primary); margin-top: 0; }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; font-weight: 500; }
-        select, input[type="file"] { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; background: #fff; }
-        button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        .btn-submit { background: var(--primary); color: white; }
-        .btn-submit:active { transform: scale(0.98); }
-        .btn-disabled { background: #ccc; cursor: not-allowed; }
-        #statusBox { margin-top: 20px; padding: 15px; border-radius: 8px; text-align: center; display: none; font-weight: 500; }
-        .status-loading { background: #e2e6ea; color: #333; }
-        .status-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .status-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .result-area { margin-top: 25px; border-top: 2px dashed #ddd; padding-top: 20px; display: none; text-align: center; }
-        .score-badge { font-size: 48px; font-weight: bold; color: var(--danger); display: block; margin: 10px 0; }
-        .result-img { max-width: 100%; border-radius: 8px; border: 2px solid #333; margin-top: 10px; }
-        .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #888; }
+        
+        .preview-container { display: flex; overflow-x: auto; gap: 10px; padding: 10px 0; margin-bottom: 20px; border-bottom: 2px dashed #eee; }
+        .page-thumb { width: 80px; height: 100px; object-fit: cover; border-radius: 5px; border: 2px solid #ddd; position: relative; }
+        .page-badge { position: absolute; bottom: -25px; left: 0; width: 100%; text-align: center; font-size: 12px; font-weight: bold; }
+        
+        .btn-group { display: flex; gap: 10px; }
+        button { flex: 1; padding: 15px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .btn-add { background: #6c757d; color: white; }
+        .btn-finish { background: var(--primary); color: white; }
+        .btn-disabled { background: #ccc; pointer-events: none; }
+
+        #statusBox { margin-top: 15px; text-align: center; font-style: italic; color: #666; }
+        #fileInput { display: none; }
+        
+        .result-link { display: block; margin-top: 15px; text-align: center; background: #e9ecef; padding: 10px; border-radius: 5px; text-decoration: none; color: #007bff; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>📱 VDC CHẤM THI</h2>
+    <h2>📚 CHẤM THI HYBRID (v1.1)</h2>
+
+    <div style="font-weight: bold; margin-bottom: 5px;">Các trang đã chụp:</div>
+    <div id="previewContainer" class="preview-container">
+        <div style="padding: 30px 10px; color: #999; font-size: 14px;">Chưa có trang nào...</div>
+    </div>
+
+    <div class="btn-group">
+        <button onclick="triggerCamera()" class="btn-add">📸 Thêm trang</button>
+        <button onclick="finishAndGrade()" id="btnFinish" class="btn-finish btn-disabled">✅ Chấm ngay</button>
+    </div>
     
-    <div class="form-group">
-        <label>📝 Loại đề thi:</label>
-        <select id="examType">
-            <option value="hybrid">Hybrid (Tô trực tiếp trên đề)</option>
-            <option value="matrix">Matrix (Phiếu trắc nghiệm)</option>
-        </select>
-    </div>
+    <div id="statusBox">Hãy chụp trang 1 (Phiếu tô) đầu tiên!</div>
+    <div id="resultArea"></div>
 
-    <div class="form-group">
-        <label>📷 Tải lên bài làm (Ảnh/PDF):</label>
-        <input type="file" id="fileInput" accept="image/*,application/pdf">
-    </div>
-
-    <button onclick="submitExam()" id="btnSubmit" class="btn-submit">BẮT ĐẦU CHẤM</button>
-
-    <div id="statusBox"></div>
-
-    <div id="resultArea" class="result-area">
-        <div>Điểm số đạt được:</div>
-        <span id="scoreDisplay" class="score-badge">--</span>
-        <div style="font-size: 14px; color: #666;">Ảnh bài chấm chi tiết:</div>
-        <img id="gradedImage" class="result-img" src="" alt="Đang tải ảnh...">
-        <button onclick="resetApp()" style="margin-top: 15px; background: #6c757d; color: white;">Chấm bài tiếp theo</button>
-    </div>
+    <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect(this)">
 </div>
-
-<div class="footer">Powered by VDC Technology & AI Dept</div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <script>
-    // ============================================================
-    // ⚠️ HÃY THAY THÔNG TIN CỦA BẠN VÀO ĐÂY LẦN CUỐI NHÉ
-    // ============================================================
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwVICVuXKF7XFLosu7GEpF2DQOjhb3NSHOXsGGYx20_lpzwZKs6uEfADO6U142vvdY/exec"; 
+    // ⚠️ BẠN HÃY DÁN LINK APPS SCRIPT CỦA BẠN VÀO DÒNG DƯỚI
+    const APPS_SCRIPT_URL = "DÁN_LINK_APPS_SCRIPT_CUA_BAN_VAO_DAY"; 
 
-    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    // ✅ ĐÃ CẬP NHẬT URL FIREBASE CHÍNH XÁC CỦA BẠN
     const firebaseConfig = {
-      apiKey: "AIzaSyBa0kw-SXlgrDSrfT_aHTtuQNiXOKUmfA0",
-      authDomain: "vdcexamauto.firebaseapp.com",
-      databaseURL: "https://vdcexamauto-default-rtdb.firebaseio.com",
-      projectId: "vdcexamauto",
-      storageBucket: "vdcexamauto.firebasestorage.app",
-      messagingSenderId: "423677058933",
-      appId: "1:423677058933:web:3e5612cae31758c6b63d3c",
-      measurementId: "G-ZXWCEDQ4T8"
+        apiKey: "AIzaSyCzWjfcD5Dgq7V-i2izb9tKLR6QM6qWPQo", // API Key cũ của bạn (nếu đổi project thì thay lại)
+        authDomain: "vdcexamauto.firebaseapp.com",
+        databaseURL: "https://vdcexamauto-default-rtdb.firebaseio.com/", // Link mới chuẩn 100%
+        projectId: "vdcexamauto",
+        storageBucket: "vdcexamauto.appspot.com",
+        messagingSenderId: "...", // Có thể điền hoặc bỏ qua nếu chỉ dùng Database
+        appId: "..." // Có thể điền hoặc bỏ qua
     };
-    // ============================================================
 
-    // Khởi tạo Firebase
-    if (!firebase.apps.length) {
-        try {
-            firebase.initializeApp(firebaseConfig);
-        } catch (e) {
-            console.error("Lỗi cấu hình Firebase:", e);
-            alert("⚠️ Lỗi cấu hình Firebase! Xem Console (F12) để biết chi tiết.");
-        }
-    }
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     const INSTRUCTOR_ID = "GV_VDC_MN"; 
 
-    function resetApp() {
-        document.getElementById('resultArea').style.display = 'none';
-        document.getElementById('fileInput').value = '';
-        document.getElementById('statusBox').style.display = 'none';
-        document.getElementById('btnSubmit').disabled = false;
-        document.getElementById('btnSubmit').innerText = "BẮT ĐẦU CHẤM";
-        document.getElementById('btnSubmit').classList.remove('btn-disabled');
-    }
+    let currentExamPages = []; 
+
+    function triggerCamera() { document.getElementById('fileInput').click(); }
 
     const toBase64 = file => new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -110,96 +81,82 @@
         reader.onerror = error => reject(error);
     });
 
-    async function submitExam() {
-        const fileInput = document.getElementById('fileInput');
-        const examType = document.getElementById('examType').value;
+    async function handleFileSelect(input) {
+        if (input.files.length === 0) return;
+        const file = input.files[0];
         const statusDiv = document.getElementById('statusBox');
-        const btn = document.getElementById('btnSubmit');
-
-        if (fileInput.files.length === 0) {
-            alert("⚠️ Vui lòng chọn file!");
-            return;
-        }
-
-        if (APPS_SCRIPT_URL.includes("VDC_CUA_BAN")) {
-            alert("⚠️ Bạn chưa điền link Apps Script và Firebase vào code!");
-            return;
-        }
-
-        const file = fileInput.files[0];
-        
-        btn.disabled = true;
-        btn.classList.add('btn-disabled');
-        btn.innerText = "Đang xử lý...";
-        
-        statusDiv.style.display = 'block';
-        statusDiv.className = 'status-loading';
-        statusDiv.innerText = "⏳ Đang tải file lên Drive...";
+        statusDiv.innerText = `⏳ Đang tải trang ${currentExamPages.length + 1}...`;
 
         try {
-            // 1. UPLOAD LÊN DRIVE
             const base64 = await toBase64(file);
-            
-            // Dùng text/plain để tránh lỗi CORS
             const response = await fetch(APPS_SCRIPT_URL, {
-                method: "POST",
-                redirect: "follow",
+                method: "POST", redirect: "follow",
                 headers: { "Content-Type": "text/plain;charset=utf-8" },
-                body: JSON.stringify({
-                    base64: base64,
-                    filename: `exam_${Date.now()}_${file.name}`,
-                    mimeType: file.type
-                })
+                body: JSON.stringify({ base64: base64, filename: `page_${Date.now()}.jpg`, mimeType: file.type })
             });
 
-            if (!response.ok) throw new Error("Lỗi kết nối Apps Script");
+            if (!response.ok) throw new Error("Lỗi mạng");
             const result = await response.json();
+            currentExamPages.push(result.fileUrl);
+            renderPreview(file);
             
-            if (result.status !== "success") throw new Error("Lỗi Script: " + result.message);
-            
-            const driveLink = result.fileUrl;
-            console.log("Upload OK:", driveLink);
-
-            // 2. GỬI YÊU CẦU CHẤM
-            statusDiv.innerText = "🤖 Đang gửi cho AI chấm điểm...";
-            
-            // Đảm bảo newReqRef chỉ được khai báo 1 lần tại đây
-            const newReqRef = db.ref(`grading_queue/${INSTRUCTOR_ID}`).push();
-            
-            await newReqRef.set({
-                status: 'pending',
-                type: examType,
-                image_url: driveLink,
-                file_type: file.type,
-                timestamp: Date.now()
-            });
-
-            // 3. ĐỢI KẾT QUẢ
-            statusDiv.innerText = "⚡ Đang đợi kết quả...";
-            
-            newReqRef.on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data && data.status === 'completed') {
-                    statusDiv.className = 'status-success';
-                    statusDiv.innerText = "✅ Đã chấm xong!";
-                    
-                    document.getElementById('resultArea').style.display = 'block';
-                    document.getElementById('scoreDisplay').innerText = data.score + "/10";
-                    if (data.result_image_url) {
-                        document.getElementById('gradedImage').src = data.result_image_url;
-                    }
-                    newReqRef.off();
-                }
-            });
-
+            statusDiv.innerText = "✅ Đã thêm. Bấm Chấm ngay khi xong.";
+            document.getElementById('btnFinish').classList.remove('btn-disabled');
         } catch (error) {
-            console.error(error);
-            statusDiv.className = 'status-error';
-            statusDiv.innerText = "❌ Lỗi: " + error.message;
-            btn.disabled = false;
-            btn.classList.remove('btn-disabled');
-            btn.innerText = "THỬ LẠI";
+            alert("Lỗi upload: " + error.message);
+            statusDiv.innerText = "❌ Lỗi tải trang.";
         }
+        input.value = '';
+    }
+
+    function renderPreview(file) {
+        const container = document.getElementById('previewContainer');
+        if (currentExamPages.length === 1) container.innerHTML = '';
+        const wrapper = document.createElement('div');
+        wrapper.style.position = "relative";
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        img.className = 'page-thumb';
+        const badge = document.createElement('div');
+        badge.className = 'page-badge';
+        badge.innerText = `Trang ${currentExamPages.length}`;
+        wrapper.appendChild(img); wrapper.appendChild(badge);
+        container.appendChild(wrapper);
+    }
+
+    async function finishAndGrade() {
+        if (currentExamPages.length === 0) return;
+        const btn = document.getElementById('btnFinish');
+        btn.innerText = "Đang gửi lệnh..."; btn.classList.add('btn-disabled');
+        
+        const examID = Date.now();
+        const ref = db.ref(`grading_queue/${INSTRUCTOR_ID}/${examID}`);
+        
+        await ref.set({
+            status: 'pending',
+            type: 'multipage',
+            pages: currentExamPages,
+            timestamp: Date.now()
+        });
+
+        document.getElementById('statusBox').innerText = "🤖 Đang chấm điểm...";
+        
+        // Lắng nghe kết quả trả về
+        ref.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data && data.status === 'completed') {
+                document.getElementById('statusBox').className = "status-done";
+                document.getElementById('statusBox').innerHTML = `✅ ĐÃ XONG! TỔNG ĐIỂM: <b>${data.score}</b>`;
+                
+                const resultArea = document.getElementById('resultArea');
+                resultArea.innerHTML = `<a href="${data.result_image_url}" target="_blank" class="result-link">📄 Xem File PDF Kết Quả</a>`;
+                
+                btn.innerText = "Chấm bài tiếp theo";
+                btn.onclick = () => location.reload();
+                btn.classList.remove('btn-disabled');
+                ref.off();
+            }
+        });
     }
 </script>
 </body>
