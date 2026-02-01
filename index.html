@@ -8,29 +8,22 @@
     <style>
         :root { --primary: #007bff; --success: #28a745; --danger: #dc3545; --bg: #f8f9fa; }
         body { font-family: 'Roboto', sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #333; }
-        
         .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
         h2 { text-align: center; color: var(--primary); margin-top: 0; }
-        
         .form-group { margin-bottom: 20px; }
         label { display: block; margin-bottom: 8px; font-weight: 500; }
-        
         select, input[type="file"] { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; background: #fff; }
-        
         button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; }
         .btn-submit { background: var(--primary); color: white; }
         .btn-submit:active { transform: scale(0.98); }
         .btn-disabled { background: #ccc; cursor: not-allowed; }
-
         #statusBox { margin-top: 20px; padding: 15px; border-radius: 8px; text-align: center; display: none; font-weight: 500; }
         .status-loading { background: #e2e6ea; color: #333; }
         .status-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .status-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-
         .result-area { margin-top: 25px; border-top: 2px dashed #ddd; padding-top: 20px; display: none; text-align: center; }
         .score-badge { font-size: 48px; font-weight: bold; color: var(--danger); display: block; margin: 10px 0; }
         .result-img { max-width: 100%; border-radius: 8px; border: 2px solid #333; margin-top: 10px; }
-        
         .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #888; }
     </style>
 </head>
@@ -72,27 +65,29 @@
 
 <script>
     // ============================================================
-    // ⚠️ KHU VỰC CẤU HÌNH (BẠN CẦN SỬA 2 CHỖ NÀY)
+    // ⚠️ HÃY THAY THÔNG TIN CỦA BẠN VÀO ĐÂY LẦN CUỐI NHÉ
     // ============================================================
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby_VDC_CUA_BAN/exec"; 
 
-    // 1. LINK APPS SCRIPT WEB APP 
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwVICVuXKF7XFLosu7GEpF2DQOjhb3NSHOXsGGYx20_lpzwZKs6uEfADO6U142vvdY/exec"; // Dán link của bạn vào đây
-
-    // 2. FIREBASE CONFIG
     const firebaseConfig = {
-      apiKey: "AIzaSyBa0kw-SXlgrDSrfT_aHTtuQNiXOKUmfA0",
-      authDomain: "vdcexamauto.firebaseapp.com",
-      databaseURL: "https://vdcexamauto-default-rtdb.firebaseio.com",
-      projectId: "vdcexamauto",
-      storageBucket: "vdcexamauto.firebasestorage.app",
-      messagingSenderId: "423677058933",
-      appId: "1:423677058933:web:3e5612cae31758c6b63d3c",
-      measurementId: "G-ZXWCEDQ4T8"
+        apiKey: "AIzaSy_VDC_CUA_BAN",
+        authDomain: "vdc-chamthi.firebaseapp.com",
+        databaseURL: "https://vdc-chamthi-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "vdc-chamthi",
+        storageBucket: "vdc-chamthi.appspot.com",
+        messagingSenderId: "123456",
+        appId: "1:123456:web:abcdef"
     };
     // ============================================================
 
+    // Khởi tạo Firebase
     if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
+        try {
+            firebase.initializeApp(firebaseConfig);
+        } catch (e) {
+            console.error("Lỗi cấu hình Firebase:", e);
+            alert("⚠️ Lỗi cấu hình Firebase! Xem Console (F12) để biết chi tiết.");
+        }
     }
     const db = firebase.database();
     const INSTRUCTOR_ID = "GV_VDC_MN"; 
@@ -120,29 +115,34 @@
         const btn = document.getElementById('btnSubmit');
 
         if (fileInput.files.length === 0) {
-            alert("⚠️ Vui lòng chụp hoặc chọn ảnh/PDF bài thi!");
+            alert("⚠️ Vui lòng chọn file!");
+            return;
+        }
+
+        if (APPS_SCRIPT_URL.includes("VDC_CUA_BAN")) {
+            alert("⚠️ Bạn chưa điền link Apps Script và Firebase vào code!");
             return;
         }
 
         const file = fileInput.files[0];
+        
         btn.disabled = true;
         btn.classList.add('btn-disabled');
         btn.innerText = "Đang xử lý...";
         
         statusDiv.style.display = 'block';
         statusDiv.className = 'status-loading';
-        statusDiv.innerText = "⏳ Đang tải file lên hệ thống...";
+        statusDiv.innerText = "⏳ Đang tải file lên Drive...";
 
         try {
+            // 1. UPLOAD LÊN DRIVE
             const base64 = await toBase64(file);
             
-// --- ĐOẠN CODE ĐÃ SỬA LỖI CORS ---
+            // Dùng text/plain để tránh lỗi CORS
             const response = await fetch(APPS_SCRIPT_URL, {
                 method: "POST",
-                mode: "no-cors", // Tạm thời dùng no-cors để gửi được dữ liệu đi
-                headers: {
-                    "Content-Type": "text/plain;charset=utf-8", // QUAN TRỌNG: Đổi thành text/plain để tránh Preflight
-                },
+                redirect: "follow",
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
                 body: JSON.stringify({
                     base64: base64,
                     filename: `exam_${Date.now()}_${file.name}`,
@@ -150,52 +150,30 @@
                 })
             });
 
-            // ⚠️ LƯU Ý QUAN TRỌNG VỀ CORS VÀ APPS SCRIPT:
-            // Khi dùng "no-cors", chúng ta KHÔNG THỂ đọc được kết quả trả về (response.json()) ngay lập tức.
-            // Tuy nhiên, dữ liệu VẪN ĐƯỢC GỬI THÀNH CÔNG lên Drive.
-            // Vì vậy, ta sẽ không đợi link từ Apps Script nữa mà sẽ gửi yêu cầu lên Firebase luôn.
-            // Python sẽ tự lấy link ảnh từ Drive sau.
-
-            console.log("Đã gửi file lên Drive (Chế độ No-Cors)");
-            
-            // GIẢ LẬP LINK DRIVE (Vì Python sẽ tự tìm file mới nhất trong thư mục, ta không cần link chính xác ngay lúc này)
-            // Hoặc chúng ta đợi Python quét thư mục.
-            
-            // --- SỬA LOGIC GỬI FIREBASE ---
-            statusDiv.innerText = "🤖 Đang gửi yêu cầu chấm...";
-            
-            const newReqRef = db.ref(`grading_queue/${INSTRUCTOR_ID}`).push();
-            
-            await newReqRef.set({
-                status: 'pending',
-                type: examType,
-                // Ta gửi tín hiệu để Python biết có file mới, Python sẽ tự quét folder Drive
-                // Lưu ý: Code Python cần được thiết lập để tự quét file mới nhất nếu không nhận được link
-                timestamp: Date.now()
-            });
-            
+            if (!response.ok) throw new Error("Lỗi kết nối Apps Script");
             const result = await response.json();
             
-            if (result.status !== "success") {
-                throw new Error("Lỗi Upload: " + (result.message || "Không rõ"));
-            }
+            if (result.status !== "success") throw new Error("Lỗi Script: " + result.message);
             
             const driveLink = result.fileUrl;
-            console.log("Upload thành công:", driveLink);
+            console.log("Upload OK:", driveLink);
 
+            // 2. GỬI YÊU CẦU CHẤM
             statusDiv.innerText = "🤖 Đang gửi cho AI chấm điểm...";
             
+            // Đảm bảo newReqRef chỉ được khai báo 1 lần tại đây
             const newReqRef = db.ref(`grading_queue/${INSTRUCTOR_ID}`).push();
             
             await newReqRef.set({
                 status: 'pending',
                 type: examType,
                 image_url: driveLink,
-                file_type: file.type, // Ghi nhận loại file
+                file_type: file.type,
                 timestamp: Date.now()
             });
 
-            statusDiv.innerText = "⚡ Đang đợi kết quả từ máy chủ...";
+            // 3. ĐỢI KẾT QUẢ
+            statusDiv.innerText = "⚡ Đang đợi kết quả...";
             
             newReqRef.on('value', (snapshot) => {
                 const data = snapshot.val();
@@ -205,9 +183,10 @@
                     
                     document.getElementById('resultArea').style.display = 'block';
                     document.getElementById('scoreDisplay').innerText = data.score + "/10";
-                    document.getElementById('gradedImage').src = data.result_image_url;
-                    
-                    newReqRef.off(); 
+                    if (data.result_image_url) {
+                        document.getElementById('gradedImage').src = data.result_image_url;
+                    }
+                    newReqRef.off();
                 }
             });
 
@@ -221,6 +200,5 @@
         }
     }
 </script>
-
 </body>
 </html>
