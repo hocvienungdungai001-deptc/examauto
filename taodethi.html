@@ -4,12 +4,26 @@
     <meta charset="UTF-8">
     <title>Bài Kiểm Tra Sát Hạch VDC - Nhóm 3</title>
     <style>
-        /* --- CSS GỐC (GIỮ NGUYÊN) --- */
+        /* --- CSS CƠ BẢN --- */
         body { font-family: 'Times New Roman', serif; margin: 0; padding: 0; background: #eee; }
-        .page { width: 210mm; min-height: 297mm; background: white; margin: 20px auto; padding: 15mm 10mm; position: relative; box-sizing: border-box; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .page { width: 210mm; min-height: 297mm; background: white; margin: 20px auto; padding: 15mm 10mm; position: relative; box-sizing: border-box; }
         
-        /* 4 MARKER ĐỊNH VỊ CHO PYTHON (QUAN TRỌNG) */
-        .marker { width: 15px; height: 15px; background: black; position: absolute; }
+        /* --- [ĐÃ SỬA] MARKER ĐỊNH VỊ: ÉP BUỘC IN RA GIẤY --- */
+        .marker { 
+            width: 15px; 
+            height: 15px; 
+            background: black !important; /* Màu nền ưu tiên */
+            position: absolute; 
+            
+            /* Lệnh ép trình duyệt in màu nền */
+            -webkit-print-color-adjust: exact; 
+            print-color-adjust: exact;
+            
+            /* Kỹ thuật dự phòng: Nếu trình duyệt vẫn chặn nền, nó sẽ in viền đen dày */
+            border: 8px solid black; 
+            box-sizing: border-box;
+        }
+        
         .tl { top: 10mm; left: 10mm; }
         .tr { top: 10mm; right: 10mm; }
         .bl { bottom: 10mm; left: 10mm; }
@@ -38,7 +52,7 @@
         .opt-row { display: flex; justify-content: space-between; }
         .opt { width: 48%; margin-bottom: 3px; }
         
-        /* ANSWER STRIP (KHU VỰC CHẤM TỰ ĐỘNG) */
+        /* ANSWER STRIP */
         .answer-strip { 
             background: #f0f0f0; 
             border: 1px solid #999; 
@@ -47,27 +61,27 @@
             align-items: center; 
             width: 100%;
             box-sizing: border-box;
+            /* Ép in màu nền xám cho dải chấm */
+            -webkit-print-color-adjust: exact; 
         }
         .strip-label { font-size: 11px; font-weight: bold; margin-right: 15px; text-transform: uppercase; }
         .checkbox-group { display: flex; gap: 20px; }
         .cb-item { display: flex; align-items: center; cursor: pointer; }
-        /* Ô vuong để tô */
+        
         .box { 
             width: 16px; height: 16px; border: 2px solid #000; background: white; margin-right: 5px; 
             display: inline-block;
         }
         .cb-label { font-weight: bold; font-size: 14px; }
 
-        /* IMAGES PLACEHOLDER */
         .img-place { 
             width: 100px; height: 100px; background: #ddd; margin: 10px 0; 
             display: flex; align-items: center; justify-content: center; font-size: 10px; color: #555; border: 1px dashed #555;
+            -webkit-print-color-adjust: exact; /* Ép in màu nền xám cho chỗ dán ảnh */
         }
 
-        /* --- PHẦN BỔ SUNG: NÚT IN & MEDIA PRINT --- */
-        .print-btn-container {
-            position: fixed; top: 20px; right: 20px; z-index: 9999;
-        }
+        /* BUTTON & PRINT MEDIA */
+        .print-btn-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
         .btn-print {
             background-color: #dc3545; color: white; border: none; padding: 12px 24px;
             font-size: 16px; font-weight: bold; border-radius: 5px; cursor: pointer;
@@ -77,7 +91,7 @@
 
         @media print {
             body { background: white; }
-            .print-btn-container { display: none !important; } /* Ẩn nút khi in */
+            .print-btn-container { display: none !important; }
             .page { margin: 0; width: 100%; border: none; box-shadow: none; page-break-after: always; }
             @page { size: A4; margin: 0; }
         }
@@ -288,7 +302,6 @@
 
     <div style="border-bottom: 1px dashed #000; padding-bottom: 5px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-end;">
         <div style="font-size: 12px; font-weight: bold; font-style: italic;">(Tiếp theo trang 1)</div>
-        
         <div style="display: flex; align-items: center;">
             <span style="font-size: 11px; font-weight: bold; margin-right: 10px;">MÃ SỐ HV (Ghi lại):</span>
             <div style="display: flex; gap: 5px;">
@@ -298,7 +311,8 @@
             </div>
         </div>
     </div>
-    <div class="question-block" style="padding-top: 10px;">
+
+     <div class="question-block" style="padding-top: 10px;">
         <div class="q-text">Câu 10. Các mối nguy về cẩu là?</div>
         <div class="options">
             <div class="opt-row"><div class="opt">A. Lật cần trục, vật thể rơi</div><div class="opt">B. Gãy cần nâng, va chạm với vật cản</div></div>
