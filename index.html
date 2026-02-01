@@ -48,8 +48,8 @@
     </div>
 
     <div class="form-group">
-        <label>📷 Chụp ảnh bài làm:</label>
-        <input type="file" id="fileInput" accept="image/*" capture="environment">
+        <label>📷 Tải lên bài làm (Ảnh/PDF):</label>
+        <input type="file" id="fileInput" accept="image/*,application/pdf">
     </div>
 
     <button onclick="submitExam()" id="btnSubmit" class="btn-submit">BẮT ĐẦU CHẤM</button>
@@ -75,33 +75,27 @@
     // ⚠️ KHU VỰC CẤU HÌNH (BẠN CẦN SỬA 2 CHỖ NÀY)
     // ============================================================
 
-    // 1. LINK APPS SCRIPT WEB APP (Lấy từ bước Deploy bên Apps Script)
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwVICVuXKF7XFLosu7GEpF2DQOjhb3NSHOXsGGYx20_lpzwZKs6uEfADO6U142vvdY/exec"; 
+    // 1. LINK APPS SCRIPT WEB APP 
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz..."; // Dán link của bạn vào đây
 
-    // 2. FIREBASE CONFIG (Lấy từ Firebase Console > Project Settings)
-    // Vào https://console.firebase.google.com/ > Chọn dự án mới > Bấm biểu tượng </> (Web) để lấy code này
+    // 2. FIREBASE CONFIG
     const firebaseConfig = {
-      apiKey: "AIzaSyBa0kw-SXlgrDSrfT_aHTtuQNiXOKUmfA0",
-      authDomain: "vdcexamauto.firebaseapp.com",
-      databaseURL: "https://vdcexamauto-default-rtdb.firebaseio.com",
-      projectId: "vdcexamauto",
-      storageBucket: "vdcexamauto.firebasestorage.app",
-      messagingSenderId: "423677058933",
-      appId: "1:423677058933:web:3e5612cae31758c6b63d3c",
-      measurementId: "G-ZXWCEDQ4T8"
+        apiKey: "AIzaSy...",
+        authDomain: "vdc-chamthi...",
+        databaseURL: "https://vdc-chamthi-default-rtdb.asia-southeast1.firebasedatabase.app", // Link database mới của bạn
+        projectId: "vdc-chamthi...",
+        storageBucket: "...",
+        messagingSenderId: "...",
+        appId: "..."
     };
     // ============================================================
 
-    // Khởi tạo Firebase
     if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
     }
     const db = firebase.database();
-    
-    // Tạo ID phiên làm việc ngẫu nhiên (hoặc Hardcode ID giảng viên nếu muốn)
     const INSTRUCTOR_ID = "GV_VDC_MN"; 
 
-    // Hàm reset để chấm bài mới
     function resetApp() {
         document.getElementById('resultArea').style.display = 'none';
         document.getElementById('fileInput').value = '';
@@ -111,7 +105,6 @@
         document.getElementById('btnSubmit').classList.remove('btn-disabled');
     }
 
-    // Hàm chuyển file sang Base64
     const toBase64 = file => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -119,20 +112,17 @@
         reader.onerror = error => reject(error);
     });
 
-    // HÀM CHÍNH: GỬI BÀI
     async function submitExam() {
         const fileInput = document.getElementById('fileInput');
         const examType = document.getElementById('examType').value;
         const statusDiv = document.getElementById('statusBox');
         const btn = document.getElementById('btnSubmit');
 
-        // Kiểm tra đầu vào
         if (fileInput.files.length === 0) {
-            alert("⚠️ Vui lòng chụp hoặc chọn ảnh bài thi!");
+            alert("⚠️ Vui lòng chụp hoặc chọn ảnh/PDF bài thi!");
             return;
         }
 
-        // Khóa giao diện
         const file = fileInput.files[0];
         btn.disabled = true;
         btn.classList.add('btn-disabled');
@@ -140,22 +130,16 @@
         
         statusDiv.style.display = 'block';
         statusDiv.className = 'status-loading';
-        statusDiv.innerText = "⏳ Đang tải ảnh lên hệ thống...";
+        statusDiv.innerText = "⏳ Đang tải file lên hệ thống...";
 
         try {
-            // BƯỚC 1: UPLOAD ẢNH LÊN GOOGLE DRIVE (Qua Apps Script)
-            // -----------------------------------------------------
             const base64 = await toBase64(file);
-            
-            // Sử dụng fetch với mode 'no-cors' để tránh lỗi chặn, 
-            // hoặc xử lý redirect nếu Apps Script trả về JSONP.
-            // Ở đây ta dùng POST chuẩn, yêu cầu Apps Script phải deploy 'Anyone'.
             
             const response = await fetch(APPS_SCRIPT_URL, {
                 method: "POST",
                 body: JSON.stringify({
                     base64: base64,
-                    filename: `exam_${Date.now()}.jpg`,
+                    filename: `exam_${Date.now()}_${file.name}`,
                     mimeType: file.type
                 })
             });
@@ -166,45 +150,33 @@
                 throw new Error("Lỗi Upload: " + (result.message || "Không rõ"));
             }
             
-            const driveLink = result.fileUrl; // Link ảnh gốc trên Drive
+            const driveLink = result.fileUrl;
             console.log("Upload thành công:", driveLink);
 
-            // BƯỚC 2: GỬI YÊU CẦU CHẤM (Lên Firebase)
-            // -----------------------------------------------------
             statusDiv.innerText = "🤖 Đang gửi cho AI chấm điểm...";
             
-            // Tạo một key mới trong hàng đợi
             const newReqRef = db.ref(`grading_queue/${INSTRUCTOR_ID}`).push();
             
             await newReqRef.set({
                 status: 'pending',
                 type: examType,
                 image_url: driveLink,
+                file_type: file.type, // Ghi nhận loại file
                 timestamp: Date.now()
             });
 
-            // BƯỚC 3: LẮNG NGHE KẾT QUẢ (Realtime)
-            // -----------------------------------------------------
             statusDiv.innerText = "⚡ Đang đợi kết quả từ máy chủ...";
             
-            // Lắng nghe sự thay đổi của chính request vừa gửi
             newReqRef.on('value', (snapshot) => {
                 const data = snapshot.val();
-                
-                // Nếu trạng thái đổi thành 'completed' -> Đã có điểm
                 if (data && data.status === 'completed') {
-                    // Hiển thị kết quả
                     statusDiv.className = 'status-success';
                     statusDiv.innerText = "✅ Đã chấm xong!";
                     
                     document.getElementById('resultArea').style.display = 'block';
                     document.getElementById('scoreDisplay').innerText = data.score + "/10";
-                    
-                    // Hiển thị ảnh đã chấm (Link từ Drive do Python trả về)
-                    // Lưu ý: Link này phải là webContentLink hoặc direct link
                     document.getElementById('gradedImage').src = data.result_image_url;
                     
-                    // Ngắt lắng nghe để tiết kiệm tài nguyên
                     newReqRef.off(); 
                 }
             });
