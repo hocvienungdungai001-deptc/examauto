@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VDC Exam Generator - Tạo Đề Thi Tự Động</title>
+    <style>
+        /* --- CẤU HÌNH CHUNG --- */
+        body { font-family: 'Times New Roman', serif; background: #f0f2f5; margin: 0; padding: 0; }
+        
+        /* --- GIAO DIỆN NHẬP LIỆU (KHÔNG IN) --- */
+        .control-panel {
+            background: white; padding: 20px; max-width: 800px; margin: 20px auto;
+            border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .control-panel h2 { color: #007bff; margin-top: 0; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-weight: bold; margin-bottom: 5px; }
+        .input-group input, .input-group textarea {
+            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit;
+        }
+        .btn-action {
+            background: #28a745; color: white; border: none; padding: 10px 20px;
+            font-size: 16px; cursor: pointer; border-radius: 4px; margin-right: 10px;
+        }
+        .btn-print { background: #6f42c1; }
+        .btn-action:hover { opacity: 0.9; }
+
+        /* --- GIAO DIỆN ĐỀ THI (SẼ IN RA) --- */
+        #exam-paper {
+            background: white; width: 210mm; min-height: 297mm; /* Khổ A4 */
+            margin: 20px auto; padding: 20mm; box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            box-sizing: border-box; position: relative;
+        }
+
+        /* Header đề thi */
+        .exam-header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+        .school-info { text-align: center; font-weight: bold; }
+        .exam-title { text-align: center; flex-grow: 1; }
+        .exam-title h1 { margin: 0; font-size: 18pt; text-transform: uppercase; }
+        
+        /* Thông tin học viên */
+        .student-info { margin-bottom: 20px; border: 1px solid #000; padding: 10px; }
+        .info-row { display: flex; margin-bottom: 8px; }
+        .info-label { width: 120px; font-weight: bold; }
+        .info-field { border-bottom: 1px dotted #000; flex-grow: 1; }
+        
+        /* Mã số sinh viên (Ô vuông để tô - Optional cho Hybrid) */
+        .id-grid { display: flex; gap: 5px; margin-top: 5px; }
+        .id-box { width: 25px; height: 25px; border: 1px solid #000; text-align: center; line-height: 25px; color: #ccc; font-size: 12px; }
+
+        /* Câu hỏi */
+        .question-item { margin-bottom: 15px; page-break-inside: avoid; }
+        .q-text { font-weight: bold; margin-bottom: 5px; }
+        .q-options { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-left: 20px; }
+        
+        /* Vùng tô đáp án (Quan trọng cho App chấm) */
+        .hybrid-answer-zone {
+            margin-top: 8px; padding: 5px 10px; background: #f9f9f9; border: 1px dashed #999;
+            display: inline-block; border-radius: 4px;
+        }
+        .bubble-row { display: flex; align-items: center; gap: 15px; }
+        .bubble {
+            width: 20px; height: 20px; border: 2px solid #333; border-radius: 3px; /* Hình vuông */
+            display: inline-block; margin-right: 5px; vertical-align: middle;
+        }
+        .bubble-label { font-weight: bold; font-size: 14px; }
+
+        /* --- CSS IN ẤN (QUAN TRỌNG) --- */
+        @media print {
+            body { background: white; -webkit-print-color-adjust: exact; }
+            .no-print, .control-panel { display: none !important; }
+            #exam-paper { width: 100%; margin: 0; padding: 0; box-shadow: none; border: none; }
+            @page { size: A4; margin: 2cm; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="control-panel no-print">
+        <h2>🛠️ Cấu Hình Đề Thi VDC</h2>
+        <div class="input-group">
+            <label>Tên Trường/Đơn vị:</label>
+            <input type="text" id="schoolName" value="TRUNG TÂM ĐÀO TẠO VDC">
+        </div>
+        <div class="input-group">
+            <label>Tên Bài Thi:</label>
+            <input type="text" id="examName" value="KIỂM TRA AN TOÀN ĐIỆN">
+        </div>
+        <div class="input-group">
+            <label>Thời gian làm bài (phút):</label>
+            <input type="text" id="examTime" value="60">
+        </div>
+        
+        <div class="input-group">
+            <label>Dán nội dung câu hỏi vào đây (Định dạng: Câu 1: ... A. ... B. ...):</label>
+            <textarea id="rawQuestions" rows="10" placeholder="Câu 1: Biển báo an toàn điện có mấy màu?
+A. 2 màu
+B. 3 màu
+C. 4 màu
+D. 5 màu
+
+Câu 2: Điện áp an toàn là bao nhiêu?
+A. Dưới 40V
+B. Dưới 50V
+C. Trên 100V
+D. 220V"></textarea>
+        </div>
+
+        <button class="btn-action" onclick="generateExam()">⚙️ Tạo Đề Thi</button>
+        <button class="btn-action btn-print" onclick="window.print()">🖨️ Xuất PDF / In Đề</button>
+        <p style="font-size: 12px; color: #666; margin-top: 10px;">*Mẹo: Sau khi bấm nút Tạo, kéo xuống dưới để xem trước. Nếu ưng ý thì bấm nút In.</p>
+    </div>
+
+    <div id="exam-paper">
+        <div class="exam-header">
+            <div class="school-info">
+                <div id="printSchoolName">TRUNG TÂM ĐÀO TẠO VDC</div>
+                <div>-----***-----</div>
+            </div>
+            <div class="exam-title">
+                <h1 id="printExamName">BÀI KIỂM TRA</h1>
+                <div>Thời gian: <span id="printTime">60</span> phút</div>
+                <div>(Không kể thời gian phát đề)</div>
+            </div>
+        </div>
+
+        <div class="student-info">
+            <div class="info-row">
+                <span class="info-label">Họ và tên:</span>
+                <div class="info-field"></div>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Lớp/Đơn vị:</span>
+                <div class="info-field"></div>
+            </div>
+            <div class="info-row" style="align-items: center; margin-top: 10px;">
+                <span class="info-label">Mã số HV:</span>
+                <div class="id-grid">
+                    <div class="id-box"></div><div class="id-box"></div><div class="id-box"></div>
+                    <div class="id-box"></div><div class="id-box"></div><div class="id-box"></div>
+                </div>
+                <div style="margin-left: 20px; font-size: 11px; font-style: italic;">(Học viên ghi mã số vào các ô vuông)</div>
+            </div>
+        </div>
+
+        <div id="questions-container">
+            </div>
+
+        <div style="text-align: center; margin-top: 30px; font-weight: bold;">--- HẾT ---</div>
+    </div>
+
+    <script>
+        // Hàm sinh đề thi từ dữ liệu nhập vào
+        function generateExam() {
+            // 1. Cập nhật thông tin Header
+            document.getElementById('printSchoolName').innerText = document.getElementById('schoolName').value.toUpperCase();
+            document.getElementById('printExamName').innerText = document.getElementById('examName').value.toUpperCase();
+            document.getElementById('printTime').innerText = document.getElementById('examTime').value;
+
+            // 2. Xử lý nội dung câu hỏi
+            const rawText = document.getElementById('rawQuestions').value;
+            const container = document.getElementById('questions-container');
+            container.innerHTML = ''; // Xóa cũ
+
+            // Tách các đoạn văn bản thành mảng dựa trên từ khóa "Câu" hoặc số thứ tự đầu dòng
+            // Logic đơn giản: Tách theo dòng mới, gom nhóm lại
+            const lines = rawText.split('\n');
+            let currentQuestion = null;
+            let questionCount = 0;
+
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line) return;
+
+                // Kiểm tra xem dòng này có phải bắt đầu câu hỏi mới không (VD: "Câu 1:", "1.")
+                const isQuestion = line.match(/^(Câu\s+\d+|Bài\s+\d+|\d+\.)[:.]/i);
+
+                if (isQuestion) {
+                    questionCount++;
+                    // Tạo khung câu hỏi HTML
+                    currentQuestion = document.createElement('div');
+                    currentQuestion.className = 'question-item';
+                    
+                    // Nội dung câu hỏi
+                    const qText = document.createElement('div');
+                    qText.className = 'q-text';
+                    qText.innerText = line; // Giữ nguyên dòng câu hỏi
+                    currentQuestion.appendChild(qText);
+
+                    // Tạo container chứa đáp án (A, B, C, D text)
+                    const optionsContainer = document.createElement('div');
+                    optionsContainer.className = 'q-options';
+                    optionsContainer.id = `options-${questionCount}`;
+                    currentQuestion.appendChild(optionsContainer);
+
+                    // --- PHẦN HYBRID: TẠO Ô TÔ ĐÁP ÁN ---
+                    const hybridZone = document.createElement('div');
+                    hybridZone.className = 'hybrid-answer-zone';
+                    hybridZone.innerHTML = `
+                        <div class="bubble-row">
+                            <span>Trả lời: </span>
+                            <div><span class="bubble"></span> A</div>
+                            <div><span class="bubble"></span> B</div>
+                            <div><span class="bubble"></span> C</div>
+                            <div><span class="bubble"></span> D</div>
+                        </div>
+                    `;
+                    currentQuestion.appendChild(hybridZone);
+
+                    container.appendChild(currentQuestion);
+                } else if (currentQuestion) {
+                    // Nếu không phải câu hỏi, thì là đáp án (A., B., C...)
+                    // Thêm vào mục options
+                    const optionDiv = document.createElement('div');
+                    optionDiv.innerText = line;
+                    
+                    // Tìm container option của câu hiện tại để nhét vào
+                    const opts = currentQuestion.querySelector('.q-options');
+                    if (opts) opts.appendChild(optionDiv);
+                }
+            });
+
+            if (questionCount === 0) {
+                alert("Không tìm thấy câu hỏi nào! Vui lòng nhập đúng định dạng 'Câu 1: ...'");
+            }
+        }
+
+        // Chạy lần đầu để hiện thị mẫu
+        window.onload = generateExam;
+    </script>
+</body>
+</html>
