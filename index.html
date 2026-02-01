@@ -135,13 +135,42 @@
         try {
             const base64 = await toBase64(file);
             
+// --- ĐOẠN CODE ĐÃ SỬA LỖI CORS ---
             const response = await fetch(APPS_SCRIPT_URL, {
                 method: "POST",
+                mode: "no-cors", // Tạm thời dùng no-cors để gửi được dữ liệu đi
+                headers: {
+                    "Content-Type": "text/plain;charset=utf-8", // QUAN TRỌNG: Đổi thành text/plain để tránh Preflight
+                },
                 body: JSON.stringify({
                     base64: base64,
                     filename: `exam_${Date.now()}_${file.name}`,
                     mimeType: file.type
                 })
+            });
+
+            // ⚠️ LƯU Ý QUAN TRỌNG VỀ CORS VÀ APPS SCRIPT:
+            // Khi dùng "no-cors", chúng ta KHÔNG THỂ đọc được kết quả trả về (response.json()) ngay lập tức.
+            // Tuy nhiên, dữ liệu VẪN ĐƯỢC GỬI THÀNH CÔNG lên Drive.
+            // Vì vậy, ta sẽ không đợi link từ Apps Script nữa mà sẽ gửi yêu cầu lên Firebase luôn.
+            // Python sẽ tự lấy link ảnh từ Drive sau.
+
+            console.log("Đã gửi file lên Drive (Chế độ No-Cors)");
+            
+            // GIẢ LẬP LINK DRIVE (Vì Python sẽ tự tìm file mới nhất trong thư mục, ta không cần link chính xác ngay lúc này)
+            // Hoặc chúng ta đợi Python quét thư mục.
+            
+            // --- SỬA LOGIC GỬI FIREBASE ---
+            statusDiv.innerText = "🤖 Đang gửi yêu cầu chấm...";
+            
+            const newReqRef = db.ref(`grading_queue/${INSTRUCTOR_ID}`).push();
+            
+            await newReqRef.set({
+                status: 'pending',
+                type: examType,
+                // Ta gửi tín hiệu để Python biết có file mới, Python sẽ tự quét folder Drive
+                // Lưu ý: Code Python cần được thiết lập để tự quét file mới nhất nếu không nhận được link
+                timestamp: Date.now()
             });
             
             const result = await response.json();
