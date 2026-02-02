@@ -3,34 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VDC Safety AI v2.9</title>
+    <title>VDC Safety AI v3.0</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <style>
         html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #121212; display: flex; align-items: center; justify-content: center; font-family: sans-serif; }
         #main-stage { position: relative; width: 95vw; height: 95vh; background: #000; border-radius: 20px; overflow: hidden; border: 2px solid #333; }
         video, canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; }
+        
+        /* Giao diện điều khiển */
         .ui-header { position: absolute; top: 15px; left: 15px; z-index: 10; background: rgba(0,0,0,0.7); padding: 8px 15px; border-radius: 30px; font-size: 12px; color: #fff; border: 1px solid #444; }
+        .refresh-btn { position: absolute; top: 15px; right: 15px; z-index: 10; background: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 20px; font-size: 12px; cursor: pointer; font-weight: bold; }
+        
         #central-alert { 
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100;
-            background: rgba(255, 0, 0, 0.85); color: white; padding: 25px; border-radius: 15px;
-            font-size: 22px; font-weight: bold; text-align: center; display: none;
+            background: rgba(255, 0, 0, 0.9); color: white; padding: 25px; border-radius: 15px;
+            font-size: 20px; font-weight: bold; text-align: center; display: none;
             box-shadow: 0 0 40px rgba(255, 0, 0, 0.6); animation: shake 0.5s infinite;
         }
-        @keyframes shake {
-            0% { transform: translate(-50%, -50%) rotate(0deg); }
-            25% { transform: translate(-52%, -52%) rotate(-1deg); }
-            75% { transform: translate(-48%, -48%) rotate(1deg); }
-            100% { transform: translate(-50%, -50%) rotate(0deg); }
-        }
+        @keyframes shake { 0%, 100% { transform: translate(-50%, -50%) rotate(0deg); } 25% { transform: translate(-52%, -52%) rotate(-1deg); } 75% { transform: translate(-48%, -48%) rotate(1deg); } }
     </style>
 </head>
 <body>
 <div id="main-stage">
     <video id="webcam" autoplay playsinline muted></video>
     <canvas id="overlay"></canvas>
-    <div class="ui-header">VDC SAFETY v2.9 | STATUS: <span id="status" style="color: #00ff00;">LOADING...</span></div>
-    <div id="central-alert">⚠️ NGUY HIỂM!<br>PHÁT HIỆN XE CƠ GIỚI & NGƯỜI</div>
+    
+    <div class="ui-header">VDC v3.0 | <span id="status">ĐANG TẢI...</span></div>
+    <button class="refresh-btn" onclick="refreshModel()">CẬP NHẬT AI</button>
+
+    <div id="central-alert">⚠️ PHÁT HIỆN VI PHẠM AN TOÀN!</div>
 </div>
 
 <script>
@@ -40,23 +42,30 @@
     const centralAlert = document.getElementById('central-alert');
     let model;
 
-    // Danh sách các vật thể cần giám sát an toàn
-    const safetyClasses = {
-        'person': 'CON NGƯỜI',
-        'car': 'Ô TÔ',
-        'truck': 'XE TẢI/XE CẨU',
-        'bus': 'XE KHÁCH/XE CƠ GIỚI',
-        'motorcycle': 'XE MÁY'
-    };
+    const safetyClasses = {'person': 'CON NGƯỜI', 'car': 'Ô TÔ', 'truck': 'XE TẢI/XE CẨU', 'bus': 'XE CUỐC/CƠ GIỚI', 'motorcycle': 'XE MÁY'};
 
     async function init() {
         try {
+            // Tải mô hình. TensorFlow.js sẽ tự động lưu vào Cache của trình duyệt nếu được cấu hình
+            status.innerText = "ĐANG KIỂM TRA BỘ NHỚ...";
             model = await cocoSsd.load();
-            status.innerText = "ONLINE";
+            status.innerText = "ONLINE (ĐÃ LƯU ĐỆM)";
+
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
             video.srcObject = stream;
             video.onloadedmetadata = () => { render(); };
-        } catch (err) { status.innerText = "OFFLINE"; }
+        } catch (err) { 
+            status.innerText = "LỖI KẾT NỐI"; 
+            console.error(err);
+        }
+    }
+
+    // Hàm Refresh chủ động
+    function refreshModel() {
+        if(confirm("Bạn muốn tải lại mô hình AI mới nhất?")) {
+            localStorage.clear(); // Xóa bộ nhớ đệm cũ
+            location.reload();    // Tải lại trang để fetch mới
+        }
     }
 
     async function render() {
@@ -76,13 +85,11 @@
                     isAlert = true;
                     const [x, y, w, h] = p.bbox;
                     const color = p.class === 'person' ? "#FFEB3B" : "#FF1744";
-                    
                     ctx.strokeStyle = color;
                     ctx.lineWidth = 4;
                     ctx.strokeRect(x * scaleX, y * scaleY, w * scaleX, h * scaleY);
-                    
                     ctx.fillStyle = color;
-                    ctx.font = "bold 18px Arial";
+                    ctx.font = "bold 16px Arial";
                     ctx.fillText(safetyClasses[p.class], x * scaleX, (y * scaleY) - 10);
                 }
             });
