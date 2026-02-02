@@ -3,18 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VDC AI Edge Camera v2.6</title>
+    <title>VDC AI Edge Camera v2.7</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
-        #container { position: relative; width: 100vw; height: 100vh; }
-        video, canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        /* Ngăn chặn cuộn trang và tràn màn hình */
+        html, body { 
+            margin: 0; 
+            padding: 0; 
+            width: 100%; 
+            height: 100%; 
+            overflow: hidden; 
+            background: #000; 
+            font-family: sans-serif;
+        }
+
+        #container { 
+            position: relative; 
+            width: 100vw; 
+            height: 100vh; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Chỉnh camera gọn trong màn hình, không bị tràn */
+        video, canvas { 
+            position: absolute; 
+            max-width: 100%; 
+            max-height: 100%;
+            /* object-fit: contain giúp thấy toàn bộ khung hình không bị mất góc */
+            object-fit: contain; 
+        }
         
-        /* Bảng điều khiển góc trên */
-        .ui-panel { position: absolute; top: 15px; left: 15px; z-index: 10; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 10px; border-left: 5px solid #00FF00; }
+        .ui-panel { 
+            position: absolute; 
+            top: 10px; 
+            left: 10px; 
+            z-index: 10; 
+            background: rgba(0,0,0,0.7); 
+            padding: 10px; 
+            border-radius: 8px; 
+            font-size: 14px;
+        }
         
-        /* Dòng chữ cảnh báo nổi giữa màn hình */
         #central-alert {
             position: absolute;
             top: 50%;
@@ -23,20 +55,19 @@
             z-index: 100;
             background: rgba(237, 28, 36, 0.9);
             color: white;
-            padding: 20px 40px;
-            border-radius: 15px;
-            font-size: 24px;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 20px;
             font-weight: bold;
             text-align: center;
             display: none;
-            box-shadow: 0 0 30px rgba(237, 28, 36, 0.5);
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
             animation: blink 0.5s infinite alternate;
-            white-space: nowrap;
         }
 
         @keyframes blink {
-            from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-            to { opacity: 0.7; transform: translate(-50%, -50%) scale(1.05); }
+            from { opacity: 1; }
+            to { opacity: 0.6; }
         }
     </style>
 </head>
@@ -47,13 +78,11 @@
     <canvas id="overlay"></canvas>
     
     <div class="ui-panel">
-        <strong style="color: #00FF00;">VDC SAFETY AI v2.6</strong><br>
-        <small id="status">Đang tải AI...</small>
+        <strong style="color: #00FF00;">VDC SAFETY v2.7</strong><br>
+        <span id="status">Đang tải AI...</span>
     </div>
 
-    <div id="central-alert">
-        ⚠️ CẢNH BÁO!<br>PHÁT HIỆN NGƯỜI & XE MÁY
-    </div>
+    <div id="central-alert">⚠️ PHÁT HIỆN VI PHẠM!</div>
 </div>
 
 <script>
@@ -64,64 +93,51 @@
     let model;
 
     async function setup() {
-        // Tải mô hình nhận diện
         model = await cocoSsd.load();
-        status.innerText = "Hệ thống Sẵn sàng";
+        status.innerText = "AI Sẵn sàng";
         
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "environment" },
-            audio: false
-        });
-        video.srcObject = stream;
-        video.onloadedmetadata = () => { predict(); };
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: "environment" },
+                audio: false
+            });
+            video.srcObject = stream;
+            video.onloadedmetadata = () => { predict(); };
+        } catch (err) {
+            status.innerText = "Lỗi truy cập Camera";
+        }
     }
 
     async function predict() {
-        const predictions = await model.detect(video);
-        
-        const ctx = canvas.getContext('2d');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Đồng bộ kích thước canvas với hiển thị thực tế của video
+        if (video.videoWidth > 0) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            const predictions = await model.detect(video);
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        let hasPerson = false;
-        let hasMotorcycle = false;
+            let alertTriggered = false;
 
-        predictions.forEach(prediction => {
-            const label = prediction.class;
-            const score = Math.round(prediction.score * 100);
+            predictions.forEach(prediction => {
+                if (['person', 'motorcycle'].includes(prediction.class)) {
+                    alertTriggered = true;
+                    
+                    // Vẽ khung
+                    ctx.strokeStyle = prediction.class === 'person' ? "#FBBC05" : "#EA4335";
+                    ctx.lineWidth = 4;
+                    ctx.strokeRect(...prediction.bbox);
+                    
+                    // Vẽ nhãn
+                    ctx.fillStyle = ctx.strokeStyle;
+                    ctx.font = "bold 20px Arial";
+                    ctx.fillText(prediction.class.toUpperCase(), prediction.bbox[0], prediction.bbox[1] - 10);
+                }
+            });
 
-            // Chỉ lọc Người và Xe máy
-            if (label === 'person' || label === 'motorcycle') {
-                if (label === 'person') hasPerson = true;
-                if (label === 'motorcycle') hasMotorcycle = true;
-
-                // Vẽ khung nhận diện
-                ctx.strokeStyle = label === 'person' ? "#FBBC05" : "#EA4335";
-                ctx.lineWidth = 5;
-                ctx.strokeRect(...prediction.bbox);
-                
-                // Vẽ nhãn
-                ctx.fillStyle = label === 'person' ? "#FBBC05" : "#EA4335";
-                ctx.font = "bold 18px Arial";
-                ctx.fillText(`${label.toUpperCase()} ${score}%`, prediction.bbox[0], prediction.bbox[1] - 10);
-            }
-        });
-
-        // Hiển thị cảnh báo nổi nếu phát hiện cả hai (hoặc tùy chỉnh logic theo ý bạn)
-        if (hasPerson && hasMotorcycle) {
-            centralAlert.style.display = 'block';
-            centralAlert.innerHTML = "⚠️ NGUY HIỂM!<br>NGƯỜI ĐI XE MÁY TRONG VÙNG CẤM";
-        } else if (hasPerson) {
-            centralAlert.style.display = 'block';
-            centralAlert.innerHTML = "⚠️ CHÚ Ý: CÓ NGƯỜI ĐI BỘ";
-        } else if (hasMotorcycle) {
-            centralAlert.style.display = 'block';
-            centralAlert.innerHTML = "⚠️ PHÁT HIỆN XE MÁY";
-        } else {
-            centralAlert.style.display = 'none';
+            centralAlert.style.display = alertTriggered ? 'block' : 'none';
         }
-
         requestAnimationFrame(predict);
     }
 
