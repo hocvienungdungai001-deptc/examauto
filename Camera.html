@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VDC Safety Camera v2.3</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+</head>
+<body>
+    <h2>VDC AI Camera Stream</h2>
+    <video id="video" width="100%" autoplay playsinline></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <p id="status">Connecting...</p>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const status = document.getElementById('status');
+        const socket = io('http://<IP_CỦA_PC>:5000'); // Thay IP máy tính của bạn
+
+        // 1. Truy cập Camera
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+            .then(stream => {
+                video.srcObject = stream;
+                status.innerText = "Camera Active - Streaming to PC";
+                
+                // 2. Gửi khung hình lên Server mỗi 100ms (10fps)
+                setInterval(() => {
+                    const context = canvas.getContext('2d');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    const data = canvas.toDataURL('image/jpeg', 0.5); // Nén 50%
+                    socket.emit('stream', data);
+                }, 100);
+            })
+            .catch(err => status.innerText = "Error: " + err);
+    </script>
+</body>
+</html>
