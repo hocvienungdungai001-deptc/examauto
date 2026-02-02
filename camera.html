@@ -3,92 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VDC AI Safety v2.8</title>
+    <title>VDC Safety AI v2.9</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <style>
-        html, body { 
-            margin: 0; 
-            padding: 0; 
-            width: 100%; 
-            height: 100%; 
-            overflow: hidden; 
-            background: #1a1a1a; /* Nền tối sang trọng */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'Segoe UI', sans-serif;
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #121212; display: flex; align-items: center; justify-content: center; font-family: sans-serif; }
+        #main-stage { position: relative; width: 95vw; height: 95vh; background: #000; border-radius: 20px; overflow: hidden; border: 2px solid #333; }
+        video, canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; }
+        .ui-header { position: absolute; top: 15px; left: 15px; z-index: 10; background: rgba(0,0,0,0.7); padding: 8px 15px; border-radius: 30px; font-size: 12px; color: #fff; border: 1px solid #444; }
+        #central-alert { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100;
+            background: rgba(255, 0, 0, 0.85); color: white; padding: 25px; border-radius: 15px;
+            font-size: 22px; font-weight: bold; text-align: center; display: none;
+            box-shadow: 0 0 40px rgba(255, 0, 0, 0.6); animation: shake 0.5s infinite;
         }
-
-        /* Khung chứa camera chiếm 95% màn hình */
-        #main-stage { 
-            position: relative; 
-            width: 95vw; 
-            height: 95vh; 
-            background: #000;
-            border-radius: 15px; /* Bo góc cho hiện đại */
-            overflow: hidden;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        video, canvas { 
-            position: absolute; 
-            width: 100%; 
-            height: 100%;
-            object-fit: cover; /* Phủ kín khung 95% */
-        }
-        
-        .ui-header { 
-            position: absolute; 
-            top: 15px; 
-            left: 15px; 
-            z-index: 10; 
-            background: rgba(0,0,0,0.6); 
-            padding: 8px 15px; 
-            border-radius: 20px; 
-            font-size: 12px;
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-        
-        #central-alert {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 100;
-            background: rgba(220, 53, 69, 0.9);
-            color: white;
-            padding: 20px 30px;
-            border-radius: 12px;
-            font-size: 18px;
-            font-weight: bold;
-            text-align: center;
-            display: none;
-            animation: pulse 0.6s infinite;
-            border: 2px solid white;
-        }
-
-        @keyframes pulse {
-            0% { transform: translate(-50%, -50%) scale(1); }
-            50% { transform: translate(-50%, -50%) scale(1.05); }
-            100% { transform: translate(-50%, -50%) scale(1); }
+        @keyframes shake {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            25% { transform: translate(-52%, -52%) rotate(-1deg); }
+            75% { transform: translate(-48%, -48%) rotate(1deg); }
+            100% { transform: translate(-50%, -50%) rotate(0deg); }
         }
     </style>
 </head>
 <body>
-
 <div id="main-stage">
     <video id="webcam" autoplay playsinline muted></video>
     <canvas id="overlay"></canvas>
-    
-    <div class="ui-header">
-        <span style="color: #00FF00;">●</span> VDC AI ENGINE v2.8 | <span id="status">Loading...</span>
-    </div>
-
-    <div id="central-alert">⚠️ CẢNH BÁO VI PHẠM!</div>
+    <div class="ui-header">VDC SAFETY v2.9 | STATUS: <span id="status" style="color: #00ff00;">LOADING...</span></div>
+    <div id="central-alert">⚠️ NGUY HIỂM!<br>PHÁT HIỆN XE CƠ GIỚI & NGƯỜI</div>
 </div>
 
 <script>
@@ -98,60 +40,56 @@
     const centralAlert = document.getElementById('central-alert');
     let model;
 
+    // Danh sách các vật thể cần giám sát an toàn
+    const safetyClasses = {
+        'person': 'CON NGƯỜI',
+        'car': 'Ô TÔ',
+        'truck': 'XE TẢI/XE CẨU',
+        'bus': 'XE KHÁCH/XE CƠ GIỚI',
+        'motorcycle': 'XE MÁY'
+    };
+
     async function init() {
         try {
             model = await cocoSsd.load();
-            status.innerText = "ACTIVE";
-            
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: "environment" },
-                audio: false
-            });
+            status.innerText = "ONLINE";
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
             video.srcObject = stream;
             video.onloadedmetadata = () => { render(); };
-        } catch (err) {
-            status.innerText = "ERROR";
-            console.error(err);
-        }
+        } catch (err) { status.innerText = "OFFLINE"; }
     }
 
     async function render() {
         if (video.videoWidth > 0) {
-            // Khớp kích thước canvas với hiển thị thực tế
             canvas.width = video.offsetWidth;
             canvas.height = video.offsetHeight;
-            
             const predictions = await model.detect(video);
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            let alertOn = false;
+            let isAlert = false;
+            const scaleX = canvas.width / video.videoWidth;
+            const scaleY = canvas.height / video.videoHeight;
 
             predictions.forEach(p => {
-                // Nhận diện Người và các loại Xe cơ giới phổ biến
-                if (['person', 'motorcycle', 'truck', 'bus'].includes(p.class)) {
-                    alertOn = true;
+                if (safetyClasses[p.class]) {
+                    isAlert = true;
+                    const [x, y, w, h] = p.bbox;
+                    const color = p.class === 'person' ? "#FFEB3B" : "#FF1744";
                     
-                    // Chuyển đổi tọa độ từ video sang canvas hiển thị
-                    const scaleX = canvas.width / video.videoWidth;
-                    const scaleY = canvas.height / video.videoHeight;
-                    const [x, y, width, height] = p.bbox;
-
-                    ctx.strokeStyle = p.class === 'person' ? "#FFC107" : "#FF5722";
-                    ctx.lineWidth = 3;
-                    ctx.strokeRect(x * scaleX, y * scaleY, width * scaleX, height * scaleY);
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 4;
+                    ctx.strokeRect(x * scaleX, y * scaleY, w * scaleX, h * scaleY);
                     
-                    ctx.fillStyle = ctx.strokeStyle;
-                    ctx.font = "bold 16px sans-serif";
-                    ctx.fillText(p.class.toUpperCase(), x * scaleX, (y * scaleY) - 5);
+                    ctx.fillStyle = color;
+                    ctx.font = "bold 18px Arial";
+                    ctx.fillText(safetyClasses[p.class], x * scaleX, (y * scaleY) - 10);
                 }
             });
-
-            centralAlert.style.display = alertOn ? 'block' : 'none';
+            centralAlert.style.display = isAlert ? 'block' : 'none';
         }
         requestAnimationFrame(render);
     }
-
     init();
 </script>
 </body>
