@@ -2,17 +2,42 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VDC AI Edge Camera v2.5</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VDC AI Edge Camera v2.6</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
+        body { margin: 0; background: #000; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
         #container { position: relative; width: 100vw; height: 100vh; }
         video, canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
-        .ui { position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; }
-        .alert-box { color: #ff0000; font-weight: bold; display: none; }
+        
+        /* Bảng điều khiển góc trên */
+        .ui-panel { position: absolute; top: 15px; left: 15px; z-index: 10; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 10px; border-left: 5px solid #00FF00; }
+        
+        /* Dòng chữ cảnh báo nổi giữa màn hình */
+        #central-alert {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+            background: rgba(237, 28, 36, 0.9);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 15px;
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            display: none;
+            box-shadow: 0 0 30px rgba(237, 28, 36, 0.5);
+            animation: blink 0.5s infinite alternate;
+            white-space: nowrap;
+        }
+
+        @keyframes blink {
+            from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            to { opacity: 0.7; transform: translate(-50%, -50%) scale(1.05); }
+        }
     </style>
 </head>
 <body>
@@ -21,10 +46,13 @@
     <video id="webcam" autoplay playsinline muted></video>
     <canvas id="overlay"></canvas>
     
-    <div class="ui">
-        <strong>VDC EDGE AI v2.5</strong><br>
-        <span id="status">Đang tải mô hình...</span><br>
-        <div id="alert" class="alert-box">PHÁT HIỆN XE CƠ GIỚI!</div>
+    <div class="ui-panel">
+        <strong style="color: #00FF00;">VDC SAFETY AI v2.6</strong><br>
+        <small id="status">Đang tải AI...</small>
+    </div>
+
+    <div id="central-alert">
+        ⚠️ CẢNH BÁO!<br>PHÁT HIỆN NGƯỜI & XE MÁY
     </div>
 </div>
 
@@ -32,13 +60,13 @@
     const video = document.getElementById('webcam');
     const canvas = document.getElementById('overlay');
     const status = document.getElementById('status');
-    const alertBox = document.getElementById('alert');
+    const centralAlert = document.getElementById('central-alert');
     let model;
 
-    // 1. Khởi tạo Camera và Model
     async function setup() {
+        // Tải mô hình nhận diện
         model = await cocoSsd.load();
-        status.innerText = "Mô hình đã sẵn sàng";
+        status.innerText = "Hệ thống Sẵn sàng";
         
         const stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: "environment" },
@@ -48,7 +76,6 @@
         video.onloadedmetadata = () => { predict(); };
     }
 
-    // 2. Nhận diện Real-time trên trình duyệt
     async function predict() {
         const predictions = await model.detect(video);
         
@@ -57,27 +84,42 @@
         canvas.height = video.videoHeight;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        let detectedVehicle = false;
+        let hasPerson = false;
+        let hasMotorcycle = false;
 
         predictions.forEach(prediction => {
-            // Vẽ khung nhận diện
-            ctx.strokeStyle = "#00FF00";
-            ctx.lineWidth = 4;
-            ctx.strokeRect(...prediction.bbox);
-            ctx.fillStyle = "#00FF00";
-            ctx.fillText(`${prediction.class} (${Math.round(prediction.score * 100)}%)`, prediction.bbox[0], prediction.bbox[1] > 10 ? prediction.bbox[1] - 5 : 10);
+            const label = prediction.class;
+            const score = Math.round(prediction.score * 100);
 
-            // Logic: Nếu thấy truck (xe tải) hoặc bus (xe lớn)
-            if (['truck', 'bus', 'car'].includes(prediction.class)) {
-                detectedVehicle = true;
+            // Chỉ lọc Người và Xe máy
+            if (label === 'person' || label === 'motorcycle') {
+                if (label === 'person') hasPerson = true;
+                if (label === 'motorcycle') hasMotorcycle = true;
+
+                // Vẽ khung nhận diện
+                ctx.strokeStyle = label === 'person' ? "#FBBC05" : "#EA4335";
+                ctx.lineWidth = 5;
+                ctx.strokeRect(...prediction.bbox);
+                
+                // Vẽ nhãn
+                ctx.fillStyle = label === 'person' ? "#FBBC05" : "#EA4335";
+                ctx.font = "bold 18px Arial";
+                ctx.fillText(`${label.toUpperCase()} ${score}%`, prediction.bbox[0], prediction.bbox[1] - 10);
             }
         });
 
-        if (detectedVehicle) {
-            alertBox.style.display = 'block';
-            // Tại đây có thể thêm lệnh socket.emit để gửi về PC trình chiếu
+        // Hiển thị cảnh báo nổi nếu phát hiện cả hai (hoặc tùy chỉnh logic theo ý bạn)
+        if (hasPerson && hasMotorcycle) {
+            centralAlert.style.display = 'block';
+            centralAlert.innerHTML = "⚠️ NGUY HIỂM!<br>NGƯỜI ĐI XE MÁY TRONG VÙNG CẤM";
+        } else if (hasPerson) {
+            centralAlert.style.display = 'block';
+            centralAlert.innerHTML = "⚠️ CHÚ Ý: CÓ NGƯỜI ĐI BỘ";
+        } else if (hasMotorcycle) {
+            centralAlert.style.display = 'block';
+            centralAlert.innerHTML = "⚠️ PHÁT HIỆN XE MÁY";
         } else {
-            alertBox.style.display = 'none';
+            centralAlert.style.display = 'none';
         }
 
         requestAnimationFrame(predict);
