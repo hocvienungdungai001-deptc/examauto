@@ -2,72 +2,88 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VDC AI Safety Camera v2.4</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VDC AI Edge Camera v2.5</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; background: #000; color: #fff; margin: 0; text-align: center; overflow: hidden; }
-        #video-container { position: relative; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
-        video { width: 100%; height: auto; border: 2px solid #ed1c24; }
-        .info-panel { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 5px; text-align: left; }
-        .version { position: absolute; bottom: 10px; right: 10px; font-size: 12px; color: #888; }
-        .btn-alert { background: #ed1c24; color: #fff; border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; margin-top: 10px; }
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
+        #container { position: relative; width: 100vw; height: 100vh; }
+        video, canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        .ui { position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; }
+        .alert-box { color: #ff0000; font-weight: bold; display: none; }
     </style>
 </head>
 <body>
 
-<div id="video-container">
-    <div class="info-panel">
-        <strong>VDC AI MONITORING</strong><br>
-        <small id="status">Đang khởi tạo...</small><br>
-        <button class="btn-alert" onclick="manualAlert()">CẢNH BÁO KHẨN</button>
+<div id="container">
+    <video id="webcam" autoplay playsinline muted></video>
+    <canvas id="overlay"></canvas>
+    
+    <div class="ui">
+        <strong>VDC EDGE AI v2.5</strong><br>
+        <span id="status">Đang tải mô hình...</span><br>
+        <div id="alert" class="alert-box">PHÁT HIỆN XE CƠ GIỚI!</div>
     </div>
-    
-    <video id="webcam" autoplay playsinline></video>
-    <canvas id="buffer" style="display:none;"></canvas>
-    
-    <div class="version">Version 2.4 | Powered by YOLOv11</div>
 </div>
 
 <script>
     const video = document.getElementById('webcam');
-    const canvas = document.getElementById('buffer');
-    const statusText = document.getElementById('status');
-    const socket = io('http://192.168.1.10:5000'); // THAY IP CỦA PC CHẠY PPTX TẠI ĐÂY
+    const canvas = document.getElementById('overlay');
+    const status = document.getElementById('status');
+    const alertBox = document.getElementById('alert');
+    let model;
 
-    // 1. Cấu hình Camera
-    async function startCamera() {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: "environment", width: 640, height: 480 },
-                audio: false
-            });
-            video.srcObject = stream;
-            statusText.innerText = "Đang truyền luồng tới Slide...";
-            
-            // 2. Gửi khung hình về Server Python để nhận diện & đẩy lên Slide
-            setInterval(() => {
-                const ctx = canvas.getContext('2d');
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0);
-                
-                // Nén JPEG để truyền nhanh qua Wi-Fi hội thảo
-                const frameData = canvas.toDataURL('image/jpeg', 0.6);
-                socket.emit('frame_to_ai', frameData);
-            }, 100); // 10 FPS là đủ để demo mượt mà
+    // 1. Khởi tạo Camera và Model
+    async function setup() {
+        model = await cocoSsd.load();
+        status.innerText = "Mô hình đã sẵn sàng";
+        
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" },
+            audio: false
+        });
+        video.srcObject = stream;
+        video.onloadedmetadata = () => { predict(); };
+    }
 
-        } catch (err) {
-            statusText.innerText = "Lỗi Camera: " + err;
+    // 2. Nhận diện Real-time trên trình duyệt
+    async function predict() {
+        const predictions = await model.detect(video);
+        
+        const ctx = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        let detectedVehicle = false;
+
+        predictions.forEach(prediction => {
+            // Vẽ khung nhận diện
+            ctx.strokeStyle = "#00FF00";
+            ctx.lineWidth = 4;
+            ctx.strokeRect(...prediction.bbox);
+            ctx.fillStyle = "#00FF00";
+            ctx.fillText(`${prediction.class} (${Math.round(prediction.score * 100)}%)`, prediction.bbox[0], prediction.bbox[1] > 10 ? prediction.bbox[1] - 5 : 10);
+
+            // Logic: Nếu thấy truck (xe tải) hoặc bus (xe lớn)
+            if (['truck', 'bus', 'car'].includes(prediction.class)) {
+                detectedVehicle = true;
+            }
+        });
+
+        if (detectedVehicle) {
+            alertBox.style.display = 'block';
+            // Tại đây có thể thêm lệnh socket.emit để gửi về PC trình chiếu
+        } else {
+            alertBox.style.display = 'none';
         }
+
+        requestAnimationFrame(predict);
     }
 
-    function manualAlert() {
-        socket.emit('manual_alert', { time: new Date().toLocaleTimeString() });
-        alert("Đã gửi tín hiệu báo động tới hệ thống!");
-    }
-
-    window.onload = startCamera;
+    setup();
 </script>
 </body>
 </html>
