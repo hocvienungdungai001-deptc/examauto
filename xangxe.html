@@ -3,116 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kiểm tra Tuyến Dây - v1.1</title>
+    <title>Kiểm tra Tuyến Dây - v1.2</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f4f7f6; }
-        #map { height: 500px; width: 100%; border-radius: 12px; border: 2px solid #dee2e6; }
-        .config-warning { font-size: 0.85rem; color: #856404; background-color: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 15px; }
+        body { background-color: #f8f9fa; }
+        #map { height: 500px; width: 100%; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .info-box { background: white; padding: 20px; border-radius: 12px; }
     </style>
 </head>
 <body>
 
 <div class="container py-4">
+    <h3 class="mb-4 text-center text-primary">Hệ Thống Tính Lộ Trình Kiểm Tra (v1.2)</h3>
     <div class="row">
         <div class="col-md-4">
-            <div class="card shadow-sm p-3">
-                <h4 class="text-primary">Lộ trình Xe máy</h4>
-                <div class="config-warning">
-                    <strong>Lưu ý:</strong> Đảm bảo API Key trong mã nguồn đã được bật "Maps JavaScript API" và "Directions API".
-                </div>
+            <div class="info-box border shadow-sm">
+                <label class="form-label fw-bold">Tọa độ đích (Lat, Lng):</label>
+                <input type="text" id="coordsInput" class="form-control mb-3" placeholder="Ví dụ: 10.8115, 106.6742">
                 
-                <div class="mb-3">
-                    <label class="form-label font-weight-bold">Từ: 113 Phổ Quang</label>
-                </div>
+                <button onclick="calculateOSRM()" class="btn btn-dark w-100 mb-3">Tính lộ trình xe máy</button>
                 
-                <div class="mb-3">
-                    <label class="form-label">Tọa độ đích (Lat, Lng):</label>
-                    <input type="text" id="destinationCoords" class="form-control" placeholder="10.8115, 106.6742">
-                </div>
-                
-                <button onclick="calculateRoute()" class="btn btn-primary w-100">Tính quãng đường</button>
-
-                <div id="results" class="mt-4 p-3 bg-light rounded" style="display:none;">
-                    <div class="d-flex justify-content-between">
-                        <span>Khoảng cách:</span>
-                        <strong id="distanceText" class="text-danger">-</strong>
-                    </div>
-                    <div class="d-flex justify-content-between mt-2">
-                        <span>Thời gian di chuyển:</span>
-                        <strong id="durationText">-</strong>
-                    </div>
+                <div id="resultPanel" class="p-3 bg-light rounded" style="display:none;">
+                    <p class="mb-1">Chiều dài lộ trình:</p>
+                    <h4 id="distanceResult" class="text-success">0 km</h4>
+                    <p class="mb-0 text-muted"><small>*Dữ liệu dựa trên OpenStreetMap</small></p>
                 </div>
             </div>
         </div>
-        
         <div class="col-md-8">
             <div id="map"></div>
-            <div id="error-message" class="text-danger mt-2"></div>
         </div>
     </div>
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
-    // Firebase Config của bạn (dùng để quản lý nếu cần mở rộng sau này)
-    const firebaseConfig = { 
-        apiKey: "AIzaSyCzWjfcD5Dgq7V-i2izb9tKLR6QM6qWPQo", 
-        authDomain: "tavietnam-78ae8.firebaseapp.com", 
-        projectId: "tavietnam-78ae8", 
-        storageBucket: "tavietnam-78ae8.firebasestorage.app", 
-        messagingSenderId: "670121705534", 
-        appId: "1:670121705534:web:1027ad98550573ad37116f" 
-    };
+    // Khởi tạo bản đồ tại 113 Phổ Quang
+    const startPoint = [10.8068, 106.6698];
+    const map = L.map('map').setView(startPoint, 15);
 
-    let map, directionsService, directionsRenderer;
-    const originLocation = { lat: 10.8068, lng: 106.6698 }; // 113 Phổ Quang
+    // Thêm lớp bản đồ từ OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
 
-    function initMap() {
-        try {
-            map = new google.maps.Map(document.getElementById('map'), {
-                zoom: 14,
-                center: originLocation,
-                mapTypeControl: false
-            });
+    // Đánh dấu điểm xuất phát
+    L.marker(startPoint).addTo(map).bindPopup('113 Phổ Quang').openPopup();
 
-            directionsService = new google.maps.DirectionsService();
-            directionsRenderer = new google.maps.DirectionsRenderer();
-            directionsRenderer.setMap(map);
-        } catch (e) {
-            document.getElementById('error-message').innerText = "Lỗi khởi tạo bản đồ. Kiểm tra lại API Key.";
-        }
-    }
+    let routeLayer;
 
-    function calculateRoute() {
-        const input = document.getElementById('destinationCoords').value;
+    async function calculateOSRM() {
+        const input = document.getElementById('coordsInput').value;
         const parts = input.split(',');
-        
+
         if (parts.length !== 2) {
-            alert("Vui lòng nhập định dạng: Vĩ độ, Kinh độ");
+            alert("Vui lòng nhập đúng: Vĩ độ, Kinh độ");
             return;
         }
 
-        const dest = { lat: parseFloat(parts[0]), lng: parseFloat(parts[1]) };
+        const endPoint = [parseFloat(parts[0].trim()), parseFloat(parts[1].trim())];
 
-        directionsService.route({
-            origin: originLocation,
-            destination: dest,
-            travelMode: google.maps.TravelMode.TWO_WHEELER
-        }, (response, status) => {
-            if (status === 'OK') {
-                directionsRenderer.setDirections(response);
-                const data = response.routes[0].legs[0];
-                document.getElementById('results').style.display = 'block';
-                document.getElementById('distanceText').innerText = data.distance.text;
-                document.getElementById('durationText').innerText = data.duration.text;
-            } else {
-                alert("Lỗi Directions API: " + status);
+        // Gọi API miễn phí của OSRM (Chế độ lái xe/xe máy)
+        const url = `https://router.project-osrm.org/route/v1/driving/${startPoint[1]},${startPoint[0]};${endPoint[1]},${endPoint[0]}?overview=full&geometries=geojson`;
+
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.code !== 'Ok') {
+                alert("Không tìm thấy đường đi!");
+                return;
             }
-        });
+
+            const distance = (data.routes[0].distance / 1000).toFixed(2); // Chuyển sang km
+            
+            // Hiển thị kết quả
+            document.getElementById('resultPanel').style.display = 'block';
+            document.getElementById('distanceResult').innerText = distance + " km";
+
+            // Vẽ đường đi lên bản đồ
+            if (routeLayer) map.removeLayer(routeLayer);
+            routeLayer = L.geoJSON(data.routes[0].geometry, {
+                style: { color: 'blue', weight: 5, opacity: 0.7 }
+            }).addTo(map);
+
+            // Tự động zoom vào lộ trình
+            map.fitBounds(routeLayer.getBounds());
+            L.marker(endPoint).addTo(map).bindPopup('Vị trí kiểm tra (CA1V)');
+
+        } catch (error) {
+            console.error(error);
+            alert("Lỗi khi kết nối máy chủ định tuyến.");
+        }
     }
 </script>
-
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCzWjfcD5Dgq7V-i2izb9tKLR6QM6qWPQo&callback=initMap" async defer></script>
 
 </body>
 </html>
